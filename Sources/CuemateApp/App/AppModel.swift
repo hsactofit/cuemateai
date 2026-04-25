@@ -6,9 +6,73 @@ struct MeetingConfiguration: Equatable, Codable, Sendable {
     var meetingType = "sales"
     var userLevel = "beginner"
     var tone = "confident"
-    var length = "medium"
+    var length = "short"
     var creativity = "balanced"
     var aiMode = "active"
+}
+
+enum MeetingMode: String, CaseIterable, Identifiable, Sendable {
+    case sales
+    case demo
+    case clientReview = "client-review"
+    case interview
+    case internalSync = "internal-sync"
+    case general
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .sales: "Sales Call"
+        case .demo: "Demo"
+        case .clientReview: "Client Review"
+        case .interview: "Interview"
+        case .internalSync: "Internal Sync"
+        case .general: "General"
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .sales:
+            "Short, outcome-focused answers with pilot and next-step framing."
+        case .demo:
+            "Guide the conversation toward workflow value and what to show next."
+        case .clientReview:
+            "Stay calm, strategic, and focused on progress, risk, and trust."
+        case .interview:
+            "Answer clearly, tie experience to outcomes, and keep examples tight."
+        case .internalSync:
+            "Push toward decisions, owners, blockers, and alignment."
+        case .general:
+            "Balanced guidance for mixed conversations."
+        }
+    }
+
+    var defaultTone: String {
+        switch self {
+        case .sales, .demo, .clientReview: "confident"
+        case .interview: "confident"
+        case .internalSync: "technical"
+        case .general: "confident"
+        }
+    }
+
+    var defaultLength: String {
+        switch self {
+        case .sales, .demo, .clientReview: "short"
+        case .interview: "medium"
+        case .internalSync: "short"
+        case .general: "short"
+        }
+    }
+
+    var defaultUserLevel: String {
+        switch self {
+        case .internalSync: "expert"
+        default: "beginner"
+        }
+    }
 }
 
 enum TranscriptionProvider: String, CaseIterable, Codable, Sendable, Identifiable {
@@ -42,9 +106,63 @@ enum GenerationProvider: String, CaseIterable, Codable, Sendable, Identifiable {
 }
 
 struct OverlayContent: Equatable, Codable, Sendable {
-    var nowSay = "Thanks for the question. Based on your current setup, the fastest path is to start with the pilot package and expand once the team sees usage."
-    var why = "Keeps the answer direct, ties to business value, and avoids over-explaining before confirming budget or rollout size."
-    var next = "Ask how many people would use the product in the first 30 days."
+    var nowSay = "Start with a focused pilot, prove value quickly, and expand once the team sees usage."
+    var why = "Keeps the answer direct and grounded in the current discussion."
+    var next = "Ask what success should look like in the first two weeks."
+}
+
+enum OverlayState: String, Sendable {
+    case idle
+    case listening
+    case questionDetected
+    case recovery
+    case answerReady
+    case speaking
+    case postAnswer
+    case paused
+
+    var title: String {
+        switch self {
+        case .idle: "Idle"
+        case .listening: "Listening"
+        case .questionDetected: "Question"
+        case .recovery: "Recovery"
+        case .answerReady: "Answer Ready"
+        case .speaking: "Speaking"
+        case .postAnswer: "Delivered"
+        case .paused: "Paused"
+        }
+    }
+}
+
+enum GuidanceConfidence: String, Sendable {
+    case low
+    case medium
+    case high
+
+    var title: String { rawValue.capitalized }
+}
+
+enum LiveIntent: String, Sendable {
+    case general
+    case pricing
+    case objection
+    case decision
+    case clarification
+    case proof
+    case nextStep
+
+    var title: String {
+        switch self {
+        case .general: "General"
+        case .pricing: "Pricing"
+        case .objection: "Objection"
+        case .decision: "Decision"
+        case .clarification: "Clarification"
+        case .proof: "Proof"
+        case .nextStep: "Next Step"
+        }
+    }
 }
 
 enum ConversationAction: String, CaseIterable, Identifiable {
@@ -199,15 +317,15 @@ final class AppModel: ObservableObject {
 
         var title: String {
             switch self {
-            case .setup: "Setup"
-            case .live: "Live"
-            case .review: "Review"
+            case .setup: "Settings"
+            case .live: "Start Session"
+            case .review: "History"
             case .settings: "Settings"
             }
         }
     }
 
-    @Published var selectedSection: WorkspaceSection? = .setup
+    @Published var selectedSection: WorkspaceSection? = .live
     @Published var runtimeSetupExpanded = true
     @Published var configuration = MeetingConfiguration() {
         didSet { persistState() }
@@ -265,6 +383,8 @@ final class AppModel: ObservableObject {
     @Published var latestTranscriptText = ""
     @Published var conversationModeLabel = "Idle"
     @Published var lastGenerationReason = ""
+    @Published var overlayState: OverlayState = .idle
+    @Published var guidanceConfidence: GuidanceConfidence = .medium
     @Published var voiceActivityState: VoiceActivityState = .silent
     @Published var interruptionState = "Idle"
     @Published var manualInterruptionActive = false
@@ -302,6 +422,8 @@ final class AppModel: ObservableObject {
     private var lastAudioActivityTimestamp: Date?
     private var lastAutoGeneratedTranscriptText = ""
     private var isAutoGenerating = false
+    private var lastGuidanceRefreshAt: Date?
+    private var lastAnswerCompletionAt: Date?
 
     init(
         appPaths: AppPaths = .default,
@@ -457,6 +579,8 @@ final class AppModel: ObservableObject {
             why: "Safer, more consultative framing for situations where the other side is still evaluating options.",
             next: "Ask whether speed of rollout or depth of adoption matters more right now."
         )
+        overlayState = .answerReady
+        guidanceConfidence = .medium
         appendLog("Generated a new sample suggestion")
     }
 
@@ -494,6 +618,7 @@ final class AppModel: ObservableObject {
     func togglePause() {
         isPaused.toggle()
         interruptionState = isPaused ? "Paused" : "Listening"
+        overlayState = isPaused ? .paused : (audioCaptureState == .capturing ? .listening : .idle)
         refreshTeleprompterState()
         appendLog(isPaused ? "Teleprompter paused" : "Teleprompter resumed")
     }
@@ -520,7 +645,36 @@ final class AppModel: ObservableObject {
         ]
 
         overlayContent = suggestions[currentSuggestionIndex % suggestions.count]
+        overlayState = .answerReady
+        guidanceConfidence = .medium
         appendLog("Loaded the next suggested response")
+    }
+
+    func generateBuyTimeGuidance() {
+        overlayContent = OverlayContent(
+            nowSay: "Let me answer that in the most practical way. The short version is we should start small, confirm the goal, and then go deeper if useful.",
+            why: "Buys a few seconds without sounding lost while keeping the conversation controlled.",
+            next: "Ask whether they want the short answer or the detailed breakdown."
+        )
+        overlayState = .recovery
+        guidanceConfidence = .low
+        conversationModeLabel = "Buy-time fallback"
+        liveResponseState = "Safe fallback ready"
+        appendLog("Generated a buy-time fallback answer")
+    }
+
+    func applyMeetingMode(_ mode: MeetingMode) {
+        configuration.meetingType = mode.rawValue
+        configuration.tone = mode.defaultTone
+        configuration.length = mode.defaultLength
+        configuration.userLevel = mode.defaultUserLevel
+
+        if overlayState == .idle || overlayState == .listening {
+            overlayContent = templateOverlayContent(for: mode)
+        }
+
+        providerStatusMessage = "\(mode.title) mode active"
+        appendLog("Applied \(mode.title) template")
     }
 
     func pinOverlayNearCamera() {
@@ -539,6 +693,144 @@ final class AppModel: ObservableObject {
 
     var activeMeetingSession: MeetingSessionRecord? {
         meetingSessions.first(where: \.isActive)
+    }
+
+    var meetingMode: MeetingMode {
+        MeetingMode(rawValue: configuration.meetingType) ?? .general
+    }
+
+    var collaboratorRoleLabel: String {
+        switch meetingMode {
+        case .sales:
+            "Prospect"
+        case .demo:
+            "Prospect"
+        case .clientReview:
+            "Client"
+        case .interview:
+            "Interviewer"
+        case .internalSync:
+            "Teammate"
+        case .general:
+            "Other"
+        }
+    }
+
+    var userDisplayName: String {
+        let trimmed = configuration.speakerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "You" : trimmed
+    }
+
+    var latestQuestionText: String {
+        if let otherLine = transcriptSegments.first(where: { normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName) })?.text,
+           !otherLine.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return otherLine
+        }
+
+        let text = latestTranscriptText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? "Waiting for the latest question or context." : text
+    }
+
+    var liveResponseText: String {
+        if overlayState == .postAnswer {
+            return "Answer delivered. Waiting for the next question."
+        }
+
+        let remaining = teleprompterRemainingText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !remaining.isEmpty, teleprompterProgress > 0.08 {
+            return remaining
+        }
+        return overlayContent.nowSay
+    }
+
+    var latestContextText: String {
+        if overlayState == .recovery {
+            return overlayContent.why
+        }
+
+        let reason = overlayContent.why.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !reason.isEmpty {
+            return reason
+        }
+        if let source = retrievalResults.first?.document.fileName {
+            return "Using context from \(source)."
+        }
+        return "Using recent live transcript."
+    }
+
+    var overlayStatusSummary: String {
+        switch overlayState {
+        case .recovery:
+            return "Missed context recovery"
+        case .answerReady:
+            return guidanceConfidence == .low ? "Safe answer ready" : "Answer ready"
+        default:
+            return overlayState.title
+        }
+    }
+
+    var overlayActionText: String {
+        if overlayState == .recovery && guidanceConfidence == .low {
+            return "Use the short answer, then ask one clarifying question."
+        }
+        return overlayContent.next
+    }
+
+    var recoverySummaryText: String? {
+        guard overlayState == .recovery else { return nil }
+        return recoveryDetailParts().summary
+    }
+
+    var recoveryNeedText: String? {
+        guard overlayState == .recovery else { return nil }
+        return recoveryDetailParts().need
+    }
+
+    var detectedIntent: LiveIntent {
+        detectIntent(from: latestQuestionText)
+    }
+
+    var preMeetingBriefItems: [String] {
+        var items: [String] = []
+
+        switch meetingMode {
+        case .sales:
+            items.append("Open with the business outcome, not the feature detail.")
+            items.append("Be ready for pricing, rollout size, and pilot questions.")
+            items.append("Leave the meeting with one concrete next step.")
+        case .demo:
+            items.append("Anchor every answer in workflow value.")
+            items.append("Keep one clean path for what to show next.")
+            items.append("Avoid feature dumping unless they ask for depth.")
+        case .clientReview:
+            items.append("Lead with progress, current risk, and next action.")
+            items.append("Be ready to explain timeline, trust, and ownership clearly.")
+            items.append("Keep the tone calm and accountable.")
+        case .interview:
+            items.append("Answer directly, then support it with one strong example.")
+            items.append("Tie experience to outcomes they care about.")
+            items.append("Keep a short version and deeper version ready.")
+        case .internalSync:
+            items.append("Push for decision, owner, blocker, and next step.")
+            items.append("Avoid over-explaining background unless needed.")
+            items.append("Keep alignment visible in every answer.")
+        case .general:
+            items.append("Give the clearest short answer first.")
+            items.append("Use follow-up questions to narrow what matters most.")
+            items.append("Keep one safe fallback ready if context is thin.")
+        }
+
+        if importedDocuments.isEmpty {
+            items.append("No local documents attached yet, so responses may rely more on live transcript.")
+        } else {
+            items.append("\(importedDocuments.count) local document(s) are available for context.")
+        }
+
+        if let lastSession = meetingSessions.first(where: { !$0.isActive }) {
+            items.append("Last saved session: \(lastSession.title). Review follow-up commitments before you start.")
+        }
+
+        return items
     }
 
     var selectedReviewSession: MeetingSessionRecord? {
@@ -600,6 +892,7 @@ final class AppModel: ObservableObject {
             transcriptSegments: transcriptSegments,
             retrievalResults: retrievalResults
         )
+        let confidence = guidanceConfidenceLevel(for: request)
 
         let response: ConversationResponse
         switch generationProvider {
@@ -650,10 +943,12 @@ final class AppModel: ObservableObject {
         isStreamingResponse = false
 
         overlayContent = OverlayContent(
-            nowSay: response.primary,
-            why: response.why,
+            nowSay: shapedPrimaryResponse(from: response.primary, confidence: confidence),
+            why: shapedReason(from: response.why, confidence: confidence),
             next: response.next
         )
+        guidanceConfidence = confidence
+        overlayState = .answerReady
         recordGuidanceSnapshot(
             provider: response.modeLabel,
             retrievalQuery: retrievalQuery,
@@ -682,6 +977,7 @@ final class AppModel: ObservableObject {
             try audioCaptureService.start()
             audioCaptureState = .capturing
             interruptionState = "Listening"
+            overlayState = .listening
             lastAudioActivityTimestamp = Date()
             if speechPermissionGranted {
                 startActiveTranscriptionProvider()
@@ -704,6 +1000,7 @@ final class AppModel: ObservableObject {
         transcriptionState = speechPermissionGranted ? .ready : .idle
         voiceActivityState = .silent
         interruptionState = "Idle"
+        overlayState = .idle
         appendLog("Microphone capture stopped")
     }
 
@@ -711,6 +1008,7 @@ final class AppModel: ObservableObject {
         manualInterruptionActive = true
         isPaused = true
         interruptionState = "Manual interruption"
+        overlayState = .paused
         refreshTeleprompterState()
         appendLog("Manual interruption triggered")
     }
@@ -719,6 +1017,7 @@ final class AppModel: ObservableObject {
         manualInterruptionActive = false
         isPaused = false
         interruptionState = audioCaptureState == .capturing ? "Listening" : "Idle"
+        overlayState = audioCaptureState == .capturing ? .listening : .idle
         refreshTeleprompterState()
         appendLog("Manual interruption cleared")
     }
@@ -921,6 +1220,7 @@ final class AppModel: ObservableObject {
             teleprompterReadText = ""
             teleprompterRemainingText = ""
             teleprompterStateLabel = "Idle"
+            syncOverlayStateFromLiveSignals()
             recordPerformance(name: "ui_refresh", durationMs: Date().timeIntervalSince(start) * 1000, budgetMs: PerformanceBudget.uiRefreshMs)
             return
         }
@@ -941,6 +1241,8 @@ final class AppModel: ObservableObject {
         } else {
             teleprompterStateLabel = "Ready"
         }
+
+        syncOverlayStateFromLiveSignals()
 
         recordPerformance(name: "ui_refresh", durationMs: Date().timeIntervalSince(start) * 1000, budgetMs: PerformanceBudget.uiRefreshMs)
     }
@@ -1131,18 +1433,32 @@ final class AppModel: ObservableObject {
             return
         }
 
+        if shouldUseRecoveryMode(for: segment) {
+            applyRecoveryMode(for: segment)
+            lastAutoGeneratedTranscriptText = trimmed
+            return
+        }
+
         guard !isAutoGenerating else {
             liveResponseState = "Waiting for current generation"
             return
         }
 
+        if let lastGuidanceRefreshAt,
+           Date().timeIntervalSince(lastGuidanceRefreshAt) < 1.2 {
+            liveResponseState = "Waiting for stable transcript"
+            return
+        }
+
         isAutoGenerating = true
+        overlayState = .questionDetected
         liveResponseState = "Refreshing from live transcript"
         lastAutoGeneratedTranscriptText = trimmed
         retrievalQuery = trimmed
         runRetrieval()
         await generateConversationGuidance()
         liveResponseState = "Live guidance updated"
+        lastGuidanceRefreshAt = Date()
         isAutoGenerating = false
     }
 
@@ -1181,18 +1497,395 @@ final class AppModel: ObservableObject {
     }
 
     private func normalizedTranscriptSegment(_ segment: TranscriptSegment) -> TranscriptSegment {
-        guard segment.speaker.lowercased() == "user" else {
-            return segment
-        }
+        let inferredSpeaker = inferredSpeakerName(for: segment)
 
         return TranscriptSegment(
             id: segment.id,
-            speaker: configuration.speakerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Me" : configuration.speakerName,
+            speaker: inferredSpeaker,
             text: segment.text,
             confidence: segment.confidence,
             isFinal: segment.isFinal,
             createdAt: segment.createdAt
         )
+    }
+
+    private func inferredSpeakerName(for segment: TranscriptSegment) -> String {
+        let originalSpeaker = normalizedSpeakerName(segment.speaker)
+        let userSpeaker = normalizedSpeakerName(userDisplayName)
+        let text = segment.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedText = text.lowercased()
+
+        guard originalSpeaker == "user" else {
+            return segment.speaker
+        }
+
+        if isLikelyOtherSpeaker(text: normalizedText) {
+            return collaboratorRoleLabel
+        }
+
+        let answerWords = Set(normalizedWords(from: overlayContent.nowSay))
+        let spokenWords = normalizedWords(from: text)
+        let overlapCount = spokenWords.filter { answerWords.contains($0) }.count
+        let overlapThreshold = min(max(2, spokenWords.count / 3), 5)
+
+        if overlapCount >= overlapThreshold || voiceActivityState == .speaking {
+            return userDisplayName
+        }
+
+        return userSpeaker.isEmpty ? "You" : userDisplayName
+    }
+
+    private func normalizedSpeakerName(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func isLikelyOtherSpeaker(text: String) -> Bool {
+        guard !text.isEmpty else { return false }
+
+        if text.contains("?") {
+            return true
+        }
+
+        let cues = [
+            "can you",
+            "could you",
+            "what do you think",
+            "how would you",
+            "why would",
+            "tell me",
+            "walk me through",
+            "help me understand"
+        ]
+
+        return cues.contains(where: text.contains)
+    }
+
+    private func detectIntent(from text: String) -> LiveIntent {
+        let lowered = text.lowercased()
+
+        if lowered.contains("price") || lowered.contains("budget") || lowered.contains("cost") {
+            return .pricing
+        }
+        if lowered.contains("concern") || lowered.contains("worried") || lowered.contains("risk") || lowered.contains("hard") || lowered.contains("problem") {
+            return .objection
+        }
+        if lowered.contains("decide") || lowered.contains("decision") || lowered.contains("approve") || lowered.contains("move forward") {
+            return .decision
+        }
+        if lowered.contains("prove") || lowered.contains("example") || lowered.contains("evidence") || lowered.contains("show me") {
+            return .proof
+        }
+        if lowered.contains("next step") || lowered.contains("follow up") || lowered.contains("what next") {
+            return .nextStep
+        }
+        if lowered.contains("?") || lowered.contains("how") || lowered.contains("why") || lowered.contains("what") {
+            return .clarification
+        }
+
+        return .general
+    }
+
+    private func guidanceConfidenceLevel(for request: ConversationRequest) -> GuidanceConfidence {
+        let latestQuestion = request.transcriptSegments.first(where: {
+            normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName)
+        })?.text ?? latestTranscriptText
+
+        if !request.retrievalResults.isEmpty, isDirectQuestion(latestQuestion) {
+            return .high
+        }
+
+        if isDirectQuestion(latestQuestion) || request.transcriptSegments.count >= 2 {
+            return .medium
+        }
+
+        return .low
+    }
+
+    private func shapedPrimaryResponse(from text: String, confidence: GuidanceConfidence) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard confidence == .low else { return trimmed }
+
+        if trimmed.isEmpty {
+            return "The short answer is to confirm the goal, give the safest next step, and clarify what matters most."
+        }
+
+        let firstSentence = trimmed
+            .split(separator: ".")
+            .first?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? trimmed
+
+        return firstSentence.hasSuffix(".") ? firstSentence : firstSentence + "."
+    }
+
+    private func shapedReason(from text: String, confidence: GuidanceConfidence) -> String {
+        guard confidence == .low else { return text }
+        return "Context is still limited, so this keeps the answer safe, short, and easy to defend."
+    }
+
+    private func shouldUseRecoveryMode(for segment: TranscriptSegment) -> Bool {
+        guard normalizedSpeakerName(segment.speaker) != normalizedSpeakerName(userDisplayName) else {
+            return false
+        }
+
+        let text = segment.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return false }
+
+        if isDirectQuestion(text) {
+            return true
+        }
+
+        if let previousUserTurn = transcriptSegments.first(where: {
+            normalizedSpeakerName($0.speaker) == normalizedSpeakerName(userDisplayName)
+        }) {
+            let gap = segment.createdAt.timeIntervalSince(previousUserTurn.createdAt)
+            if gap > 45, isLikelyDecisionMoment(text) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private func applyRecoveryMode(for segment: TranscriptSegment) {
+        let summary = summarizeForRecovery(segment.text)
+        let want = inferAskIntent(from: segment.text)
+
+        overlayContent = OverlayContent(
+            nowSay: safeRecoveryAnswer(for: segment.text),
+            why: "What happened: \(summary) || They need: \(want)",
+            next: followUpPrompt(for: segment.text)
+        )
+        overlayState = .recovery
+        guidanceConfidence = .low
+        conversationModeLabel = "Recovery mode"
+        liveResponseState = "Recovery answer ready"
+        providerStatusMessage = "Using recovery fallback"
+        appendLog("Triggered Smart Recovery Mode")
+    }
+
+    private func templateOverlayContent(for mode: MeetingMode) -> OverlayContent {
+        switch mode {
+        case .sales:
+            return OverlayContent(
+                nowSay: "Start with the lowest-risk next step, prove value quickly, and expand from evidence.",
+                why: "Keeps the answer commercial, direct, and outcome-focused.",
+                next: "Ask what would need to be true for them to start a pilot."
+            )
+        case .demo:
+            return OverlayContent(
+                nowSay: "Frame the answer around the workflow improvement they will notice first, then show the next relevant step.",
+                why: "Keeps the demo grounded in user value instead of feature depth.",
+                next: "Ask which workflow they want to see next."
+            )
+        case .clientReview:
+            return OverlayContent(
+                nowSay: "Anchor on progress, current risk, and the clearest next action so the client feels guided and informed.",
+                why: "Helps the conversation feel calm, accountable, and strategic.",
+                next: "Ask which risk or milestone matters most before the next review."
+            )
+        case .interview:
+            return OverlayContent(
+                nowSay: "Lead with the direct answer, connect it to an outcome, and use one tight example if they want depth.",
+                why: "Keeps the answer structured without sounding rehearsed.",
+                next: "Ask if they want the short summary or a deeper example."
+            )
+        case .internalSync:
+            return OverlayContent(
+                nowSay: "Clarify the decision, name the owner, and keep the next step specific.",
+                why: "Moves internal meetings toward alignment and action instead of drift.",
+                next: "Ask who owns the next step and what could block it."
+            )
+        case .general:
+            return OverlayContent(
+                nowSay: "Give the clearest short answer first, then add only the detail that helps the decision.",
+                why: "Keeps the conversation moving without over-explaining.",
+                next: "Ask one focused follow-up to confirm what matters most."
+            )
+        }
+    }
+
+    private func summarizeForRecovery(_ text: String) -> String {
+        let compact = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compact.isEmpty else {
+            return "The conversation turned back to you."
+        }
+
+        let summary = compact
+            .split(whereSeparator: \.isWhitespace)
+            .prefix(14)
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return summary.hasSuffix(".") ? summary : summary + "."
+    }
+
+    private func inferAskIntent(from text: String) -> String {
+        switch detectIntent(from: text) {
+        case .pricing:
+            return "They want a clear view on pricing or rollout size."
+        case .objection:
+            return "They need risk reduction, confidence, or a simpler path forward."
+        case .decision:
+            return "They want enough clarity to decide whether to move forward."
+        case .proof:
+            return "They want evidence, examples, or proof that the approach will work."
+        case .nextStep:
+            return "They want the clearest next move and who should own it."
+        case .clarification:
+            let lowered = text.lowercased()
+            if lowered.contains("timeline") || lowered.contains("when") {
+                return "They want timing clarity and the safest next step."
+            }
+            if lowered.contains("how") {
+                return "They want the practical approach, not a long explanation."
+            }
+            if lowered.contains("why") {
+                return "They want reasoning and confidence in the recommendation."
+            }
+            return "They want a direct answer and one clear next move."
+        case .general:
+            let lowered = text.lowercased()
+            if lowered.contains("timeline") || lowered.contains("when") {
+            return "They want timing clarity and the safest next step."
+            }
+            return "They want a direct answer and one clear next move."
+        }
+    }
+
+    private func safeRecoveryAnswer(for text: String) -> String {
+        switch detectIntent(from: text) {
+        case .pricing:
+            return "The simplest answer is to start with the right initial scope, prove value quickly, and size the rollout from there."
+        case .objection:
+            return "The safest answer is to reduce risk first, keep the rollout focused, and validate with one practical step."
+        case .decision:
+            return "The best answer is to make the next decision small, clear, and easy to act on now."
+        case .proof:
+            return "The clearest answer is to tie this to one concrete example, one real outcome, and one simple next step."
+        case .nextStep:
+            return "The practical answer is to agree on one clear next step, one owner, and one timeline."
+        case .clarification:
+            let lowered = text.lowercased()
+            if lowered.contains("timeline") || lowered.contains("when") {
+            return "The safest path is to begin with one focused step now, validate quickly, and expand once the team sees traction."
+            }
+            if lowered.contains("how") {
+                return "The practical answer is to keep it simple first, confirm the goal, and then go deeper only where it helps."
+            }
+            return "The short answer is to take the lowest-risk next step first, confirm the outcome, and then build from there."
+        case .general:
+            return "The short answer is to take the lowest-risk next step first, confirm the outcome, and then build from there."
+        }
+    }
+
+    private func followUpPrompt(for text: String) -> String {
+        switch detectIntent(from: text) {
+        case .pricing:
+            return "Ask what budget range or first-team size they are considering."
+        case .objection:
+            return "Ask what feels riskiest or hardest from their side right now."
+        case .decision:
+            return "Ask what would need to be true for them to move forward."
+        case .proof:
+            return "Ask whether they want an example, evidence, or a deeper walkthrough."
+        case .nextStep:
+            return "Ask who should own the next step and by when."
+        case .clarification:
+            let lowered = text.lowercased()
+            if lowered.contains("timeline") || lowered.contains("when") {
+                return "Ask what deadline or launch window matters most."
+            }
+            if lowered.contains("how") {
+            return "Ask whether they want the short version or the implementation detail."
+            }
+            return "Ask one clarifying question to confirm what matters most."
+        case .general:
+            return "Ask one clarifying question to confirm what matters most."
+        }
+    }
+
+    private func isDirectQuestion(_ text: String) -> Bool {
+        let lowered = text.lowercased()
+        if lowered.contains("?") {
+            return true
+        }
+
+        let cues = [
+            "can you",
+            "could you",
+            "would you",
+            "what do you think",
+            "how would you",
+            "what's your view",
+            "tell us",
+            "walk us through"
+        ]
+
+        return cues.contains(where: lowered.contains)
+    }
+
+    private func isLikelyDecisionMoment(_ text: String) -> Bool {
+        let lowered = text.lowercased()
+        let cues = [
+            "next step",
+            "rollout",
+            "budget",
+            "price",
+            "timeline",
+            "pilot",
+            "decision"
+        ]
+        return cues.contains(where: lowered.contains)
+    }
+
+    private func recoveryDetailParts() -> (summary: String, need: String) {
+        let raw = overlayContent.why
+        let parts = raw.components(separatedBy: " || ")
+
+        let summary = parts.first?
+            .replacingOccurrences(of: "What happened:", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let need = parts.dropFirst().first?
+            .replacingOccurrences(of: "They need:", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return (
+            summary: summary?.isEmpty == false ? summary! : overlayContent.why,
+            need: need?.isEmpty == false ? need! : "A direct answer and a clear next move."
+        )
+    }
+
+    private func syncOverlayStateFromLiveSignals() {
+        if manualInterruptionActive || isPaused {
+            overlayState = .paused
+            return
+        }
+
+        if teleprompterProgress >= 0.75 && voiceActivityState == .silent {
+            overlayState = .postAnswer
+            if lastAnswerCompletionAt == nil {
+                lastAnswerCompletionAt = Date()
+            }
+            return
+        }
+
+        if teleprompterProgress > 0.08 && voiceActivityState == .speaking {
+            overlayState = .speaking
+            return
+        }
+
+        if overlayState == .recovery {
+            return
+        }
+
+        if !overlayContent.nowSay.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           transcriptSegments.contains(where: { normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName) }) {
+            overlayState = .answerReady
+            return
+        }
+
+        overlayState = audioCaptureState == .capturing ? .listening : .idle
     }
 
     @Published var overlayAnchor: OverlayAnchor = .topCenter {

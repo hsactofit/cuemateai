@@ -36,10 +36,14 @@ struct ConversationEngine: Sendable {
         switch (meetingType, tone) {
         case ("sales", "confident"):
             return "The strongest next step is to start with a focused pilot and expand once the team sees real value."
+        case ("client-review", _):
+            return "The clearest answer is to anchor on progress so far, the main risk, and the next action that keeps trust high."
         case ("interview", _):
             return "A clear way to answer that is to connect your direct experience to the outcome they care about."
         case ("demo", _):
             return "The simplest way to frame this is around the workflow improvement the team will notice first."
+        case ("internal-sync", _):
+            return "The practical answer is to name the decision, the owner, and the next step without adding extra noise."
         case (_, "technical"):
             return "The practical answer is to start with the system behavior, then explain the implementation tradeoff."
         default:
@@ -84,10 +88,14 @@ struct ConversationEngine: Sendable {
         switch meetingType {
         case "sales":
             return "Ask what would need to be true for them to start a pilot."
+        case "client-review":
+            return "Ask which milestone or risk matters most before the next review."
         case "interview":
             return "Ask whether they want a deeper example or a shorter summary."
         case "demo":
             return "Ask which workflow they want to see next."
+        case "internal-sync":
+            return "Ask who owns the next step and what could block it."
         default:
             return "Ask one focused follow-up to keep the conversation moving."
         }

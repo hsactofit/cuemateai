@@ -77,6 +77,9 @@ struct OpenAIConversationService: Sendable {
         }.joined(separator: "\n")
 
         return """
+        The answer must feel like a calm premium assistant for a high-pressure meeting.
+        Keep the primary answer to 1-2 short sentences. Prefer clarity over completeness.
+
         Meeting configuration:
         - meetingType: \(request.configuration.meetingType)
         - userLevel: \(request.configuration.userLevel)
@@ -91,6 +94,13 @@ struct OpenAIConversationService: Sendable {
         Retrieved context:
         \(sources.isEmpty ? "None" : sources)
 
+        Meeting mode guidance:
+        - sales: emphasize business outcome, pilot framing, and next step.
+        - demo: emphasize workflow value and what to show next.
+        - client-review: emphasize progress, risk, trust, and next action.
+        - interview: emphasize direct answer, outcome, and concise example.
+        - internal-sync: emphasize decision, owner, blocker, and alignment.
+
         Return JSON with keys primary, why, next.
         """
     }
@@ -98,6 +108,7 @@ struct OpenAIConversationService: Sendable {
     private var systemInstruction: String {
         """
         You are a meeting copilot. Produce one concise thing the user should say now, one short why explanation, and one follow-up next step.
+        Keep the primary answer short enough to scan instantly.
         Return strict JSON:
         {"primary":"...","why":"...","next":"..."}
         """
