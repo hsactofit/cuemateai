@@ -89,6 +89,7 @@ struct StartSessionWorkspaceView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     sessionCard
                     preMeetingBriefCard
+                    readinessCard
                     liveControlCard
                     currentGuidanceCard
                 }
@@ -263,6 +264,37 @@ struct StartSessionWorkspaceView: View {
         }
     }
 
+    private var readinessCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Meeting Readiness")
+                            .font(.title3.weight(.semibold))
+                        Text("A quick check before you go live.")
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    StatusDot(title: model.setupReadiness.title, color: readinessColor(model.setupReadiness))
+                }
+
+                ForEach(model.setupChecklistItems, id: \.title) { item in
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: item.done ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(item.done ? Color.green : .secondary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(item.title)
+                                .font(.subheadline.weight(.semibold))
+                            Text(item.detail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private var currentGuidanceCard: some View {
         SurfaceCard {
             VStack(alignment: .leading, spacing: 18) {
@@ -388,6 +420,14 @@ struct StartSessionWorkspaceView: View {
         case .high: .green
         }
     }
+
+    private func readinessColor(_ readiness: SetupReadiness) -> Color {
+        switch readiness {
+        case .needsSetup: .red
+        case .partial: .yellow
+        case .ready: .green
+        }
+    }
 }
 
 struct HistoryWorkspaceView: View {
@@ -483,6 +523,7 @@ struct SettingsWorkspaceView: View {
 
             HStack(alignment: .top, spacing: 20) {
                 VStack(alignment: .leading, spacing: 20) {
+                    setupReadinessCard
                     setupCard
                     providerCard
                 }
@@ -546,6 +587,48 @@ struct SettingsWorkspaceView: View {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(Color(nsColor: .controlBackgroundColor))
                     )
+                }
+            }
+        }
+    }
+
+    private var setupReadinessCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Recommended Setup")
+                            .font(.title3.weight(.semibold))
+                        Text("Use the safest defaults for this machine and workflow.")
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    StatusDot(title: model.setupReadiness.title, color: readinessColor(model.setupReadiness))
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Recommended transcription: \(model.recommendedTranscriptionProvider.title)")
+                    Text("Recommended response: \(providerLabel(model.recommendedGenerationProvider))")
+                }
+                .font(.subheadline)
+
+                Button("Apply Recommended Defaults") {
+                    model.applyRecommendedSetupDefaults()
+                }
+                .buttonStyle(.borderedProminent)
+
+                ForEach(model.setupChecklistItems, id: \.title) { item in
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: item.done ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(item.done ? Color.green : .secondary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(item.title)
+                                .font(.subheadline.weight(.semibold))
+                            Text(item.detail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
             }
         }
@@ -678,6 +761,22 @@ struct SettingsWorkspaceView: View {
 
     private func actionTitle(for item: InstallerItemViewModel) -> String {
         item.status == .installing ? "Installing..." : item.descriptor.installActionTitle
+    }
+
+    private func providerLabel(_ provider: GenerationProvider) -> String {
+        switch provider {
+        case .localHeuristic: "Local"
+        case .openAI: "OpenAI"
+        case .ollama: "Ollama"
+        }
+    }
+
+    private func readinessColor(_ readiness: SetupReadiness) -> Color {
+        switch readiness {
+        case .needsSetup: .red
+        case .partial: .yellow
+        case .ready: .green
+        }
     }
 }
 

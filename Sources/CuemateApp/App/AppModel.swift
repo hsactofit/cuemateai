@@ -165,6 +165,38 @@ enum LiveIntent: String, Sendable {
     }
 }
 
+enum SetupReadiness: String, Sendable {
+    case needsSetup
+    case partial
+    case ready
+
+    var title: String {
+        switch self {
+        case .needsSetup: "Needs Setup"
+        case .partial: "Partially Ready"
+        case .ready: "Ready"
+        }
+    }
+}
+
+enum ResponseMode: String, Sendable {
+    case direct
+    case safe
+    case consultative
+    case proof
+    case close
+
+    var title: String {
+        switch self {
+        case .direct: "Direct"
+        case .safe: "Safe"
+        case .consultative: "Consultative"
+        case .proof: "Proof"
+        case .close: "Close"
+        }
+    }
+}
+
 enum ConversationAction: String, CaseIterable, Identifiable {
     case toggleOverlay
     case pauseResume
@@ -677,6 +709,20 @@ final class AppModel: ObservableObject {
         appendLog("Applied \(mode.title) template")
     }
 
+    func applyRecommendedSetupDefaults() {
+        transcriptionProvider = recommendedTranscriptionProvider
+        generationProvider = recommendedGenerationProvider
+        autoResponseEnabled = true
+        overlayPinnedNearCamera = true
+
+        if configuration.speakerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            configuration.speakerName = "Me"
+        }
+
+        providerStatusMessage = "Applied recommended setup defaults"
+        appendLog("Applied recommended setup defaults")
+    }
+
     func pinOverlayNearCamera() {
         overlayPinnedNearCamera = true
         overlayCoordinator.pinNearCamera(
@@ -788,6 +834,62 @@ final class AppModel: ObservableObject {
 
     var detectedIntent: LiveIntent {
         detectIntent(from: latestQuestionText)
+    }
+
+    var recommendedTranscriptionProvider: TranscriptionProvider {
+        dependencyStatus(for: "whisper-runtime") == .ready && dependencyStatus(for: "whisper-model") == .ready
+            ? .whisperCpp
+            : .appleSpeech
+    }
+
+    var recommendedGenerationProvider: GenerationProvider {
+        dependencyStatus(for: "ollama") == .ready && dependencyStatus(for: "qwen3") == .ready
+            ? .ollama
+            : .localHeuristic
+    }
+
+    var setupReadiness: SetupReadiness {
+        let localReady = dependencyStatus(for: "ollama") == .ready && dependencyStatus(for: "qwen3") == .ready
+        let speechReady = speechPermissionGranted || transcriptionProvider == .appleSpeech
+        let microphoneReady = microphonePermissionGranted || audioCaptureState == .idle || audioCaptureState == .ready
+
+        if localReady && speechReady && microphoneReady {
+            return .ready
+        }
+
+        let anyReady = dependencyItems.contains(where: { $0.status == .ready }) || speechPermissionGranted || microphonePermissionGranted
+        return anyReady ? .partial : .needsSetup
+    }
+
+    var setupChecklistItems: [(title: String, detail: String, done: Bool)] {
+        [
+            (
+                title: "Microphone access",
+                detail: microphonePermissionGranted ? "Microphone permission granted." : "Grant microphone access before a live meeting.",
+                done: microphonePermissionGranted
+            ),
+            (
+                title: "Speech pipeline",
+                detail: transcriptionProvider == .whisperCpp
+                    ? (dependencyStatus(for: "whisper-runtime") == .ready && dependencyStatus(for: "whisper-model") == .ready
+                        ? "whisper.cpp is ready for local transcription."
+                        : "whisper.cpp still needs runtime or model setup.")
+                    : "Apple Speech is selected for fast setup.",
+                done: transcriptionProvider == .appleSpeech || (dependencyStatus(for: "whisper-runtime") == .ready && dependencyStatus(for: "whisper-model") == .ready)
+            ),
+            (
+                title: "Response engine",
+                detail: recommendedGenerationProvider == .ollama
+                    ? "Ollama local generation is available."
+                    : "Local heuristic guidance is available even without Ollama.",
+                done: recommendedGenerationProvider == .ollama || generationProvider == .localHeuristic
+            ),
+            (
+                title: "Overlay placement",
+                detail: overlayVisible ? "Overlay is visible and ready to test." : "Show the overlay once before a real call to confirm placement.",
+                done: overlayVisible
+            )
+        ]
     }
 
     var preMeetingBriefItems: [String] {
@@ -1913,6 +2015,10 @@ final class AppModel: ObservableObject {
         }
         dependencyItems[index].detail = detail
         dependencyItems[index].progress = progress
+    }
+
+    private func dependencyStatus(for id: String) -> DependencyStatus {
+        dependencyItems.first(where: { $0.id == id })?.status ?? .pending
     }
 
     private func syncOverlayPlacementIfNeeded() {

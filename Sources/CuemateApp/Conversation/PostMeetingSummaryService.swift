@@ -10,6 +10,9 @@ struct MeetingSummary: Codable, Sendable, Equatable {
 }
 
 struct PostMeetingSummaryService: Sendable {
+    private let modeHelper = MeetingModePromptHelper()
+    private let draftBuilder = FollowUpDraftBuilder()
+
     func generateSummary(for session: MeetingSessionRecord, documents: [IngestedDocument]) -> MeetingSummary {
         let transcriptTexts = session.transcriptSegments
             .sorted { $0.createdAt < $1.createdAt }
@@ -19,162 +22,300 @@ struct PostMeetingSummaryService: Sendable {
             .sorted { $0.createdAt < $1.createdAt }
             .map(\.content.nowSay)
 
-        let mergedText = (transcriptTexts + guidanceTexts).joined(separator: " ")
-        let summaryText = summarize(mergedText, wordLimit: 34)
+        let combinedTexts = transcriptTexts + guidanceTexts
+        let fullTranscript = transcriptTexts.joined(separator: " ")
+        let signals = modeHelper.extractSignals(from: fullTranscript)
 
-        let keyTopics = extractKeyTopics(from: transcriptTexts + guidanceTexts)
-        let actionItems = buildActionItems(from: session, documents: documents)
-        let outcomeNote = deriveOutcome(from: session, transcriptTexts: transcriptTexts)
-        let followUpDraft = buildFollowUpDraft(for: session, actionItems: actionItems, transcriptTexts: transcriptTexts)
-        let decisionSummary = buildDecisionSummary(for: session, transcriptTexts: transcriptTexts)
+        let summaryText = summarize(combinedTexts.joined(separator: " "), wordLimit: 40)
+        let keyTopics = extractKeyTopics(from: transcriptTexts, meetingType: session.configuration.meetingType)
+        let actionItems = buildActionItems(from: session, documents: documents, signals: signals, transcriptTexts: transcriptTexts)
+        let outcomeNote = deriveOutcome(from: session, signals: signals)
+        let decisionSummary = buildDecisionSummary(for: session, signals: signals)
+
+        let draftInput = FollowUpDraftBuilder.DraftInput(
+            meetingType: session.configuration.meetingType,
+            speakerName: session.configuration.speakerName,
+            actionItems: actionItems,
+            transcriptText: fullTranscript,
+            keyTopics: keyTopics,
+            decisionSummary: decisionSummary
+        )
+        let followUpDraft = draftBuilder.build(from: draftInput).formatted
 
         return MeetingSummary(
             overview: summaryText.isEmpty ? fallbackOverview(for: session) : summaryText,
-            keyTopics: Array(keyTopics.prefix(4)),
-            actionItems: Array(actionItems.prefix(4)),
+            keyTopics: Array(keyTopics.prefix(5)),
+            actionItems: Array(actionItems.prefix(5)),
             outcomeNote: outcomeNote,
             followUpDraft: followUpDraft,
             decisionSummary: decisionSummary
         )
     }
 
-    private func extractKeyTopics(from texts: [String]) -> [String] {
-        let interestingTokens = texts
-            .flatMap { tokenize($0) }
-            .filter { token in
+    // MARK: - Key topic extraction
+
+    private func extractKeyTopics(from texts: [String], meetingType: String) -> [String] {
+        let tokens = texts.flatMap { tokenize($0) }
+
+        // Score unigrams
+        var unigramCounts = Dictionary(tokens.map { ($0, 1) }, uniquingKeysWith: +)
+
+        // Boost tokens that match mode success signals
+        let signals = modeHelper.successSignals(for: meetingType)
+        for signal in signals {
+            let normalized = signal.lowercased().replacingOccurrences(of: " ", with: "")
+            if let count = unigramCounts[normalized] {
+                unigramCounts[normalized] = count + 3
+            }
+        }
+
+        let filteredUnigrams = unigramCounts
+            .filter { token, _ in
                 token.count > 4 && !stopWords.contains(token)
             }
-
-        let ranked = Dictionary(interestingTokens.map { ($0, 1) }, uniquingKeysWith: +)
             .sorted { lhs, rhs in
-                if lhs.value == rhs.value {
-                    return lhs.key < rhs.key
-                }
-                return lhs.value > rhs.value
+                lhs.value == rhs.value ? lhs.key < rhs.key : lhs.value > rhs.value
             }
             .map(\.key)
+            .map { $0.capitalized }
 
-        return ranked.map { $0.capitalized }
+        // Extract meaningful bigrams (two-word phrases)
+        let bigrams = extractBigrams(from: texts)
+
+        // Merge bigrams first (more specific), then fill with unigrams
+        var result: [String] = bigrams.prefix(3).map { $0 }
+        for token in filteredUnigrams {
+            if result.count >= 6 { break }
+            // Skip if already covered by a bigram
+            let alreadyCovered = result.contains { $0.lowercased().contains(token.lowercased()) }
+            if !alreadyCovered {
+                result.append(token)
+            }
+        }
+
+        return result
     }
 
-    private func buildActionItems(from session: MeetingSessionRecord, documents: [IngestedDocument]) -> [String] {
+    private func extractBigrams(from texts: [String]) -> [String] {
+        var bigramCounts: [String: Int] = [:]
+
+        for text in texts {
+            let words = tokenize(text).filter { $0.count > 3 && !stopWords.contains($0) }
+            for i in 0..<(words.count - 1) {
+                let bigram = "\(words[i].capitalized) \(words[i + 1].capitalized)"
+                bigramCounts[bigram, default: 0] += 1
+            }
+        }
+
+        return bigramCounts
+            .filter { $0.value >= 2 }
+            .sorted { $0.value > $1.value }
+            .map(\.key)
+    }
+
+    // MARK: - Action items
+
+    private func buildActionItems(
+        from session: MeetingSessionRecord,
+        documents: [IngestedDocument],
+        signals: MeetingModePromptHelper.TranscriptSignals,
+        transcriptTexts: [String]
+    ) -> [String] {
         var items: [String] = []
 
-        if let next = session.guidanceHistory.first?.content.next, !next.isEmpty {
+        // Guidance-derived action (most specific — from live coaching)
+        if let next = session.guidanceHistory.last?.content.next, !next.isEmpty {
             items.append(next)
         }
 
-        if session.configuration.meetingType == "sales" {
-            items.append("Follow up with the next concrete pilot or rollout step.")
+        // Signal-specific items (cross-mode, high precision)
+        if signals.hasSendRequest {
+            items.append("Send the requested materials or follow-up document.")
         }
 
-        if session.configuration.meetingType == "interview" {
-            items.append("Prepare a sharper example for the topic that came up most.")
+        if signals.hasPilotMention {
+            items.append("Define the pilot scope, timeline, and success criteria.")
+        } else if signals.hasBudgetMention {
+            items.append("Clarify the budget range and expected rollout size.")
         }
 
+        if signals.hasTimelineMention {
+            items.append("Confirm the timeline discussed and the first hard deadline.")
+        }
+
+        if signals.hasBlockerSignal {
+            items.append("Identify and resolve the blocker raised in the meeting.")
+        }
+
+        if signals.hasConcernSignal && !signals.hasBlockerSignal {
+            items.append("Address the concern raised and share a short written response.")
+        }
+
+        // Mode-specific items (fallback when signals don't fire)
+        appendModeSpecificItems(
+            to: &items,
+            meetingType: session.configuration.meetingType,
+            signals: signals
+        )
+
+        // Document attachment reminder
         if !session.documentIDs.isEmpty {
             let attachedCount = documents.filter { session.documentIDs.contains($0.id) }.count
-            items.append("Review the \(attachedCount) attached documents before the next meeting.")
+            if attachedCount > 0 {
+                items.append("Review the \(attachedCount) attached document\(attachedCount == 1 ? "" : "s") before the next meeting.")
+            }
         }
 
+        // Fallback
         if items.isEmpty {
-            items.append("Review the meeting transcript and pick the next best follow-up.")
+            items.append("Review the meeting transcript and identify the clearest next action.")
         }
 
         return deduplicated(items)
     }
 
-    private func deriveOutcome(from session: MeetingSessionRecord, transcriptTexts: [String]) -> String {
-        let transcript = transcriptTexts.joined(separator: " ").lowercased()
-        if transcript.contains("pilot") || transcript.contains("next step") {
-            return "The conversation pointed toward a concrete next-step discussion."
-        }
-        if transcript.contains("follow up") || transcript.contains("send") {
-            return "A follow-up response or material handoff is likely needed."
-        }
-        if session.guidanceHistory.isEmpty {
-            return "The session captured conversation context, but little guided output was recorded."
-        }
-        return "The session captured both conversation context and live guidance for later review."
-    }
-
-    private func fallbackOverview(for session: MeetingSessionRecord) -> String {
-        "A \(session.configuration.meetingType) meeting with \(session.transcriptSegments.count) transcript items and \(session.guidanceHistory.count) guidance moments."
-    }
-
-    private func buildDecisionSummary(for session: MeetingSessionRecord, transcriptTexts: [String]) -> String {
-        let transcript = transcriptTexts.joined(separator: " ").lowercased()
-
-        if transcript.contains("pilot") {
-            return "The conversation leaned toward a pilot-style next step."
-        }
-        if transcript.contains("follow up") || transcript.contains("send") {
-            return "The meeting ended with a likely follow-up or material handoff."
-        }
-        if transcript.contains("timeline") || transcript.contains("next week") || transcript.contains("this week") {
-            return "Timing and near-term execution looked important in the meeting."
-        }
-
-        switch session.configuration.meetingType {
+    private func appendModeSpecificItems(
+        to items: inout [String],
+        meetingType: String,
+        signals: MeetingModePromptHelper.TranscriptSignals
+    ) {
+        switch meetingType {
         case "sales":
-            return "The key outcome is whether this can move toward a qualified next step."
+            if !signals.hasPilotMention && !signals.hasBudgetMention {
+                items.append("Identify the smallest high-value starting point for a next step.")
+            }
+            items.append("Confirm whether procurement or a decision-maker needs to be looped in.")
         case "demo":
-            return "The key outcome is which workflow or product path should be shown next."
+            items.append("Note which workflow generated the most engagement.")
+            if signals.hasOnboardingSignal {
+                items.append("Draft a lightweight onboarding path for the highest-interest workflow.")
+            }
         case "client-review":
-            return "The key outcome is progress clarity, open risk, and the next accountable step."
+            items.append("Document the main open risk and the owner responsible for resolving it.")
+            items.append("Share a written status update before the next review date.")
         case "interview":
-            return "The key outcome is whether the discussion strengthened fit and created a clear next conversation."
+            items.append("Prepare a stronger example for the topic that came up most prominently.")
+            items.append("Send a thank-you note within 24 hours with one reinforcing signal.")
         case "internal-sync":
-            return "The key outcome is whether ownership and next action became clearer."
+            items.append("Confirm owners and deadlines for each action item named in the sync.")
+            if signals.hasBlockerSignal {
+                items.append("Escalate the blocker to the appropriate stakeholder.")
+            }
+        default:
+            items.append("Review the meeting transcript and pick the best follow-up action.")
+        }
+    }
+
+    // MARK: - Outcome note
+
+    private func deriveOutcome(
+        from session: MeetingSessionRecord,
+        signals: MeetingModePromptHelper.TranscriptSignals
+    ) -> String {
+        let meetingType = session.configuration.meetingType
+
+        // High-signal combinations first
+        if signals.hasPilotMention && signals.hasTimelineMention {
+            return "The conversation moved toward a pilot with a rough timeline — strong buying signal."
+        }
+        if signals.hasPilotMention && signals.hasBudgetMention {
+            return "Budget and pilot scope were both on the table — the deal is in active evaluation."
+        }
+        if signals.hasDecisionSignal && meetingType == "internal-sync" {
+            return "At least one decision was made in this sync — confirm ownership before the thread cools."
+        }
+        if signals.hasBlockerSignal && meetingType == "internal-sync" {
+            return "A blocker surfaced in the sync — unblocking this is the critical next action."
+        }
+        if signals.hasConcernSignal && (meetingType == "sales" || meetingType == "client-review") {
+            return "A concern or risk was raised — addressing it directly will determine the next move."
+        }
+        if signals.hasCommitmentSignal {
+            return "At least one explicit commitment was made — track it before the next touchpoint."
+        }
+
+        // Transcript signal fallbacks
+        if signals.hasPilotMention {
+            return "The conversation pointed toward a pilot-style next step."
+        }
+        if signals.hasFollowUpMention || signals.hasSendRequest {
+            return "A follow-up or material handoff is expected from this meeting."
+        }
+        if signals.hasTimelineMention {
+            return "Timing and near-term execution were prominent — the urgency is real."
+        }
+
+        // Mode-specific fallbacks
+        if session.guidanceHistory.isEmpty {
+            return "The session captured conversation context with minimal live guidance recorded."
+        }
+
+        switch meetingType {
+        case "sales":
+            return "The session built context for a sales conversation. The next step is to qualify the path forward."
+        case "demo":
+            return "The demo ran with live context captured. The next step is to note what resonated most."
+        case "client-review":
+            return "The review session completed. Progress and open risks were the main themes."
+        case "interview":
+            return "The interview session closed. The next step is a timely follow-up that reinforces fit."
+        case "internal-sync":
+            return "The sync captured conversation context. Decisions and owners should be confirmed in writing."
+        default:
+            return "The session captured both conversation context and live guidance for later review."
+        }
+    }
+
+    // MARK: - Decision summary
+
+    private func buildDecisionSummary(
+        for session: MeetingSessionRecord,
+        signals: MeetingModePromptHelper.TranscriptSignals
+    ) -> String {
+        let meetingType = session.configuration.meetingType
+
+        if signals.hasDecisionSignal && signals.hasPilotMention {
+            return "A pilot decision appears to have been reached. Confirm scope and timeline in writing."
+        }
+        if signals.hasDecisionSignal {
+            return "At least one decision was confirmed in the meeting. Document the decision and who owns the next action."
+        }
+        if signals.hasPilotMention {
+            return "The conversation leaned toward a pilot-style next step. Scope and timeline still need confirmation."
+        }
+        if signals.hasFollowUpMention || signals.hasSendRequest {
+            return "The meeting ended with a likely follow-up or material handoff as the key next move."
+        }
+        if signals.hasTimelineMention {
+            return "Timing and near-term execution are the key decision variable coming out of this meeting."
+        }
+        if signals.hasBlockerSignal {
+            return "A blocker is the primary obstacle — the key decision is who unblocks it and by when."
+        }
+
+        switch meetingType {
+        case "sales":
+            return "The key outcome is whether this can move toward a qualified next step with a clear owner."
+        case "demo":
+            return "The key outcome is which workflow or product path should be shown or explored next."
+        case "client-review":
+            return "The key outcome is progress clarity, the top open risk, and the next accountable action."
+        case "interview":
+            return "The key outcome is whether the discussion strengthened fit and created a clear path to the next conversation."
+        case "internal-sync":
+            return "The key outcome is whether ownership and the next action became explicit before the meeting ended."
         default:
             return "The key outcome is the clearest next move coming out of the discussion."
         }
     }
 
-    private func buildFollowUpDraft(
-        for session: MeetingSessionRecord,
-        actionItems: [String],
-        transcriptTexts: [String]
-    ) -> String {
-        let subjectLine: String
-        let opening: String
+    // MARK: - Helpers
 
-        switch session.configuration.meetingType {
-        case "sales":
-            subjectLine = "Subject: Next step from our conversation"
-            opening = "Thanks again for the conversation today. Based on our discussion, the clearest next step is to keep the rollout focused and move with the smallest high-value starting point."
-        case "demo":
-            subjectLine = "Subject: Demo recap and next workflow"
-            opening = "Thanks for the time today. Here is the short recap from the demo and the best next workflow to continue with."
-        case "client-review":
-            subjectLine = "Subject: Review recap and next actions"
-            opening = "Thanks for the review today. Here is a concise recap of progress, the main open point, and the next action to keep things moving."
-        case "interview":
-            subjectLine = "Subject: Thank you and next steps"
-            opening = "Thank you for the conversation today. I appreciated the chance to discuss the role and wanted to send a short follow-up with the clearest next step."
-        case "internal-sync":
-            subjectLine = "Subject: Sync recap and owners"
-            opening = "Here is the short recap from the sync, along with the main decision path and next actions."
-        default:
-            subjectLine = "Subject: Meeting recap and next step"
-            opening = "Thanks again for the conversation. Here is the short recap and the clearest next step from the meeting."
-        }
-
-        let topActions = actionItems.prefix(2).map { "- \($0)" }.joined(separator: "\n")
-        let close = transcriptTexts.joined(separator: " ").lowercased().contains("send")
-            ? "I will follow up with the requested material as the next step."
-            : "Let me know if you want a shorter summary or a deeper follow-up from here."
-
-        return """
-        \(subjectLine)
-
-        \(opening)
-
-        Next actions:
-        \(topActions.isEmpty ? "- Confirm the best next step from this meeting." : topActions)
-
-        \(close)
-        """
+    private func fallbackOverview(for session: MeetingSessionRecord) -> String {
+        let mode = session.configuration.meetingType.replacingOccurrences(of: "-", with: " ")
+        let tCount = session.transcriptSegments.count
+        let gCount = session.guidanceHistory.count
+        return "A \(mode) session with \(tCount) transcript segment\(tCount == 1 ? "" : "s") and \(gCount) live guidance moment\(gCount == 1 ? "" : "s")."
     }
 
     private func summarize(_ text: String, wordLimit: Int) -> String {
@@ -201,6 +342,8 @@ struct PostMeetingSummaryService: Sendable {
         "about", "after", "again", "because", "before", "could", "there", "their",
         "would", "should", "while", "where", "which", "thanks", "based", "start",
         "still", "needs", "using", "local", "meeting", "answer", "clear", "first",
-        "later", "right", "through"
+        "later", "right", "through", "going", "think", "just", "know", "like",
+        "have", "that", "with", "this", "will", "from", "were", "been", "they",
+        "what", "when", "then", "also", "some", "more", "than", "very", "into"
     ]
 }
