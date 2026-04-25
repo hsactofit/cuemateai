@@ -903,6 +903,46 @@ final class AppModel: ObservableObject {
         }
     }
 
+    var interruptionRecoveryStep: String? {
+        guard manualInterruptionActive else { return nil }
+
+        switch detectedIntent {
+        case .objection:
+            return "Re-enter by acknowledging the concern, then give the smallest safe path."
+        case .decision:
+            return "Re-enter by naming the next decision in one sentence, then assign the owner."
+        case .pricing:
+            return "Re-enter by framing scope and value before budget detail."
+        case .nextStep:
+            return "Re-enter by naming one next step, one owner, and one timeline."
+        case .proof:
+            return "Re-enter with one proof point only, then stop."
+        case .clarification, .general:
+            return "Re-enter with the direct answer first, then ask a focused follow-up."
+        }
+    }
+
+    var liveDecisionCue: String {
+        if manualInterruptionActive {
+            return "Re-enter"
+        }
+
+        if overlayState == .speaking && teleprompterProgress > 0.7 {
+            return "Stop"
+        }
+
+        switch detectedIntent {
+        case .decision, .nextStep:
+            return "Close"
+        case .clarification, .proof:
+            return "Clarify"
+        case .objection, .pricing:
+            return "Reduce Risk"
+        case .general:
+            return "Answer"
+        }
+    }
+
     var activePlaybookTitle: String {
         switch detectedIntent {
         case .objection:

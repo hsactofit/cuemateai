@@ -28,6 +28,9 @@ struct MeetingSessionRecord: Identifiable, Codable, Sendable, Equatable {
     var documentIDs: [UUID]
     var summary: MeetingSummary?
     var followUpNotes: String
+    /// Pre-meeting brief generated before the session starts.
+    /// Nil for sessions created before this field was added.
+    var brief: MeetingBrief?
     /// Stored follow-up artifact generated after the meeting ends.
     /// Nil for sessions created before this field was added.
     var followUpArtifact: StoredFollowUpArtifact?

@@ -239,6 +239,7 @@ struct StartSessionWorkspaceView: View {
                     StatusDot(title: stateLabel(model.audioCaptureState), color: model.audioCaptureState == .capturing ? .green : .gray)
                     StatusDot(title: model.overlayStatusSummary, color: overlayStateColor(model.overlayState))
                     StatusDot(title: model.guidanceConfidence.title, color: confidenceColor(model.guidanceConfidence))
+                    StatusDot(title: model.liveDecisionCue, color: liveDecisionColor(model.liveDecisionCue))
                     StatusDot(title: model.liveResponseState, color: .orange)
                 }
             }
@@ -394,6 +395,9 @@ struct StartSessionWorkspaceView: View {
                 DetailBlock(title: "Suggested Mode", text: model.suggestedResponseMode.title)
                 DetailBlock(title: "Cue", text: model.coachingCue)
                 DetailBlock(title: "Confidence Advice", text: model.confidenceAdvice)
+                if let step = model.interruptionRecoveryStep {
+                    DetailBlock(title: "Re-entry", text: step)
+                }
             }
         }
     }
@@ -460,6 +464,17 @@ struct StartSessionWorkspaceView: View {
         case .low: .yellow
         case .medium: .blue
         case .high: .green
+        }
+    }
+
+    private func liveDecisionColor(_ cue: String) -> Color {
+        switch cue {
+        case "Stop": .green
+        case "Close": .blue
+        case "Clarify": .yellow
+        case "Reduce Risk": .orange
+        case "Re-enter": .pink
+        default: .secondary
         }
     }
 
