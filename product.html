@@ -468,10 +468,10 @@
             </div>
             <div class="window-body">
               <div class="sidebar">
-                <div class="sidebar-card"><strong>Quick Start</strong><br>Install, test, then go live</div>
+                <div class="sidebar-card"><strong>Start Session</strong><br>Pick a mode, get a brief, go live</div>
                 <div class="sidebar-card"><strong>Question / Answer / Action</strong><br>One clean live flow</div>
-                <div class="sidebar-card"><strong>Agentic Copilot</strong><br>Context-aware guidance with memory and next-step intent</div>
-                <div class="sidebar-card"><strong>Review</strong><br>Summaries, actions, history</div>
+                <div class="sidebar-card"><strong>History</strong><br>Summaries, follow-ups, and briefs — all local</div>
+                <div class="sidebar-card"><strong>Settings</strong><br>Provider, transcription, key, privacy</div>
               </div>
               <div class="content">
                 <div class="overlay-card">
@@ -505,16 +505,16 @@
           </div>
           <div class="stats">
             <div class="stat">
-              <strong>Private</strong>
-              <span>Your recordings, transcripts, and local context stay yours.</span>
+              <strong>Local-first</strong>
+              <span>Transcription, session records, documents, and config stay on your machine. OpenAI is opt-in only.</span>
             </div>
             <div class="stat">
               <strong>Fast</strong>
-              <span>Streaming response previews reduce the time-to-first-help.</span>
+              <span>Streaming response previews reduce time-to-first-help. Pre-meeting briefs mean you start every session sharp.</span>
             </div>
             <div class="stat">
-              <strong>Agentic</strong>
-              <span>Built toward proactive reasoning, memory, and small helpful background tasks.</span>
+              <strong>Full arc</strong>
+              <span>Brief before, guidance during, summary and follow-up draft after. One tool, the whole meeting.</span>
             </div>
           </div>
         </div>
@@ -522,28 +522,37 @@
     </section>
 
     <section class="section">
-      <div class="section-title">Two Clear Flows</div>
-      <h2>Simple enough to trust in the middle of a real conversation.</h2>
+      <div class="section-title">Three Surfaces</div>
+      <h2>Simple enough to trust before, during, and after a real conversation.</h2>
       <p class="section-copy">
-        Cuemate is built around two flows that keep the product simple under pressure: get ready quickly, then rely on one compact answer format that helps you recover context and keep moving.
+        Cuemate is organized around three surfaces that cover the full meeting arc: prepare before, stay sharp during, and capture what matters after.
       </p>
       <div class="flow-grid">
         <div class="flow">
-          <h3>Quick Start</h3>
+          <h3>Start Session</h3>
           <ul>
-            <li>Install runtime and local models</li>
-            <li>Test microphone, transcript, and overlay position</li>
-            <li>Save your meeting name and speaker identity</li>
-            <li>Start a session when everything feels ready</li>
+            <li>Pick a meeting type — sales, demo, client review, interview, internal sync</li>
+            <li>Attach relevant documents</li>
+            <li>Get a pre-meeting brief: goal, focus areas, risks, opening framing</li>
+            <li>Go live — the overlay activates with your brief as context</li>
           </ul>
         </div>
         <div class="flow">
-          <h3>Question / Answer / Action</h3>
+          <h3>Live — Question / Answer / Action</h3>
           <ul>
             <li>Question: what was just asked or what you missed</li>
-            <li>Answer: what you should say now</li>
+            <li>Answer: structured response shaped by meeting mode and intent</li>
             <li>Action: the best next move in the conversation</li>
-            <li>Review: revisit transcript, guidance, and summary later</li>
+            <li>Playbook guidance for objection, pricing, and decision moments</li>
+          </ul>
+        </div>
+        <div class="flow">
+          <h3>History</h3>
+          <ul>
+            <li>Every session leaves a full record — stored locally, never on a server</li>
+            <li>Overview, key topics, action items, decision summary</li>
+            <li>Follow-up draft with subject line, ready to send</li>
+            <li>The pre-meeting brief used for that session, preserved for reference</li>
           </ul>
         </div>
       </div>
@@ -566,16 +575,24 @@
           <p>See draft responses as they form so you can start recovering before the full answer is even finished.</p>
         </div>
         <div class="feature">
-          <h3>Meeting Sessions</h3>
-          <p>Capture transcript and guidance history into one session so every meeting leaves behind usable clarity.</p>
+          <h3>Pre-meeting Briefs</h3>
+          <p>Before every session: a goal, focus areas, likely risks, opening framing, document highlights, and a note from your last session of the same type.</p>
+        </div>
+        <div class="feature">
+          <h3>Meeting Sessions &amp; History</h3>
+          <p>Every session leaves a full local record — summary, action items, decision note, follow-up draft, and the brief that was used. Browseable in the History tab.</p>
         </div>
         <div class="feature">
           <h3>Local Context</h3>
-          <p>Bring in documents and retrieval context so suggestions stay grounded in your actual material and your actual work.</p>
+          <p>Attach documents and retrieval context so guidance stays grounded in your actual material, not generic suggestions.</p>
         </div>
         <div class="feature">
           <h3>Open Model Choice</h3>
-          <p>Run local heuristic guidance, Ollama-hosted models, or optional API fallback paths depending on your comfort and workflow.</p>
+          <p>Heuristic-only (no network), Ollama (local inference), or OpenAI (optional, key in Keychain). Brief generation and live guidance both respect your provider choice.</p>
+        </div>
+        <div class="feature">
+          <h3>Privacy Transparency</h3>
+          <p>Settings shows exactly which paths are local, when OpenAI may be contacted, what is stored on disk, and where your API key lives. Nothing is hidden.</p>
         </div>
         <div class="feature">
           <h3>Agentic Workflows <span class="badge upcoming">Upcoming</span></h3>

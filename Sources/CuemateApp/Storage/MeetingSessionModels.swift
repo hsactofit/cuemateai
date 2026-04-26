@@ -38,6 +38,53 @@ struct MeetingSessionRecord: Identifiable, Codable, Sendable, Equatable {
     var isActive: Bool {
         endedAt == nil
     }
+
+    // Explicit memberwise init — required because defining `init(from:)` suppresses synthesis.
+    init(
+        id: UUID,
+        title: String,
+        startedAt: Date,
+        endedAt: Date?,
+        configuration: MeetingConfiguration,
+        transcriptSegments: [TranscriptSegment],
+        guidanceHistory: [GuidanceSnapshot],
+        documentIDs: [UUID],
+        summary: MeetingSummary?,
+        followUpNotes: String,
+        brief: MeetingBrief?,
+        followUpArtifact: StoredFollowUpArtifact?
+    ) {
+        self.id = id
+        self.title = title
+        self.startedAt = startedAt
+        self.endedAt = endedAt
+        self.configuration = configuration
+        self.transcriptSegments = transcriptSegments
+        self.guidanceHistory = guidanceHistory
+        self.documentIDs = documentIDs
+        self.summary = summary
+        self.followUpNotes = followUpNotes
+        self.brief = brief
+        self.followUpArtifact = followUpArtifact
+    }
+
+    /// Custom decoder keeps old saved sessions decodable when new non-optional fields
+    /// (e.g. `followUpNotes`) are added after sessions were already persisted.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        startedAt = try c.decode(Date.self, forKey: .startedAt)
+        endedAt = try c.decodeIfPresent(Date.self, forKey: .endedAt)
+        configuration = try c.decode(MeetingConfiguration.self, forKey: .configuration)
+        transcriptSegments = try c.decode([TranscriptSegment].self, forKey: .transcriptSegments)
+        guidanceHistory = (try? c.decode([GuidanceSnapshot].self, forKey: .guidanceHistory)) ?? []
+        documentIDs = (try? c.decode([UUID].self, forKey: .documentIDs)) ?? []
+        summary = try? c.decodeIfPresent(MeetingSummary.self, forKey: .summary) ?? nil
+        followUpNotes = (try? c.decode(String.self, forKey: .followUpNotes)) ?? ""
+        brief = try? c.decodeIfPresent(MeetingBrief.self, forKey: .brief) ?? nil
+        followUpArtifact = try? c.decodeIfPresent(StoredFollowUpArtifact.self, forKey: .followUpArtifact) ?? nil
+    }
 }
 
 struct MeetingSessionLibrary: Codable, Sendable {

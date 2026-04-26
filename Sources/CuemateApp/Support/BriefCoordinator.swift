@@ -27,6 +27,36 @@ struct BriefCoordinator: Sendable {
         let documentIDs: [UUID]
         let priorSessions: [MeetingSessionRecord]
         let strategy: BriefGenerationStrategy
+
+        /// Convenience factory. Selects a strategy automatically:
+        /// - Passes `ollamaModel` if provided and non-empty.
+        /// - Passes `openAIKey`/`openAIModel` if both are non-empty.
+        /// - Falls back to heuristic-only when neither is available.
+        static func make(
+            configuration: MeetingConfiguration,
+            snapshot: DocumentLibrarySnapshot,
+            documentIDs: [UUID],
+            priorSessions: [MeetingSessionRecord],
+            ollamaModel: String? = nil,
+            openAIKey: String? = nil,
+            openAIModel: String = "gpt-4o-mini"
+        ) -> Input {
+            let strategy: BriefGenerationStrategy
+            if let model = ollamaModel, !model.isEmpty {
+                strategy = .ollama(model: model)
+            } else if let key = openAIKey, !key.isEmpty {
+                strategy = .openAI(apiKey: key, model: openAIModel)
+            } else {
+                strategy = .heuristicOnly
+            }
+            return Input(
+                configuration: configuration,
+                snapshot: snapshot,
+                documentIDs: documentIDs,
+                priorSessions: priorSessions,
+                strategy: strategy
+            )
+        }
     }
 
     func build(from input: Input) async -> MeetingBrief {

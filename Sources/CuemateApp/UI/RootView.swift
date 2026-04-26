@@ -89,6 +89,7 @@ struct StartSessionWorkspaceView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     sessionCard
                     preMeetingBriefCard
+                    recurringMemoryCard
                     readinessCard
                     liveControlCard
                     currentGuidanceCard
@@ -260,8 +261,13 @@ struct StartSessionWorkspaceView: View {
                     StatusDot(title: model.meetingMode.title, color: .blue)
                 }
 
-                ForEach(model.preMeetingBriefItems, id: \.self) { item in
-                    BulletLine(text: item)
+                if let brief = model.activeMeetingSession?.brief {
+                    PreSessionBriefView(brief: brief)
+                        .frame(maxHeight: 420)
+                } else {
+                    ForEach(model.preMeetingBriefItems, id: \.self) { item in
+                        BulletLine(text: item)
+                    }
                 }
             }
         }
@@ -293,6 +299,27 @@ struct StartSessionWorkspaceView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                }
+            }
+        }
+    }
+
+    private var recurringMemoryCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Recurring Memory")
+                            .font(.title3.weight(.semibold))
+                        Text("Small continuity from recent sessions of the same meeting type.")
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    StatusDot(title: model.meetingMode.title, color: .mint)
+                }
+
+                ForEach(model.recurringMemoryItems, id: \.self) { item in
+                    BulletLine(text: item)
                 }
             }
         }
@@ -377,6 +404,7 @@ struct StartSessionWorkspaceView: View {
 
                 CompactMetric(title: "Speaker", value: model.userDisplayName)
                 CompactMetric(title: "Other Role", value: model.collaboratorRoleLabel)
+                CompactMetric(title: "Speaker Read", value: model.speakerReadSummary)
                 CompactMetric(title: "Transcription", value: model.transcriptionProvider.title)
                 CompactMetric(title: "Response", value: providerLabel(model.generationProvider))
                 CompactMetric(title: "Intent", value: model.detectedIntent.title)
@@ -394,7 +422,9 @@ struct StartSessionWorkspaceView: View {
                 Text("Coach")
                     .font(.title3.weight(.semibold))
 
+                DetailBlock(title: "Mode Focus", text: model.meetingModeFocusSummary)
                 DetailBlock(title: "Suggested Mode", text: model.suggestedResponseMode.title)
+                DetailBlock(title: "Preferred Style", text: model.preferredResponseStyleTitle)
                 DetailBlock(title: "Cue", text: model.coachingCue)
                 DetailBlock(title: "Confidence Advice", text: model.confidenceAdvice)
                 DetailBlock(title: "Signal Read", text: model.confidenceSignalSummary)
@@ -429,6 +459,7 @@ struct StartSessionWorkspaceView: View {
                     )
                 }
 
+                DetailBlock(title: "Mode Risk", text: model.meetingModeRiskSummary)
                 DetailBlock(title: "Avoid", text: model.playbookRiskToAvoid)
             }
         }
@@ -504,71 +535,18 @@ struct HistoryWorkspaceView: View {
                 subtitle: "Every saved session keeps the transcript, live guidance, and post-meeting summary in one place."
             )
 
-            HStack(alignment: .top, spacing: 20) {
-                SurfaceCard {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Sessions")
-                            .font(.title3.weight(.semibold))
-
-                        if model.meetingSessions.isEmpty {
-                            EmptyStateCard(text: "No saved sessions yet.")
-                        } else {
-                            ForEach(model.meetingSessions) { session in
-                                Button {
-                                    model.selectSession(session.id)
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        HStack {
-                                            Text(session.title)
-                                                .font(.headline)
-                                            Spacer()
-                                            Text(session.isActive ? "Live" : "Saved")
-                                                .font(.caption.weight(.semibold))
-                                                .foregroundStyle(session.isActive ? Color.green : .secondary)
-                                        }
-                                        Text(sessionDateLabel(session))
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                        Text("\(session.transcriptSegments.count) transcript • \(session.guidanceHistory.count) guidance")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(12)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .fill(model.selectedSessionID == session.id ? Color.accentColor.opacity(0.12) : Color(nsColor: .controlBackgroundColor))
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
+            SurfaceCard {
+                if model.historyState.sessions.isEmpty {
+                    EmptyStateCard(text: "No saved sessions yet.")
+                } else {
+                    SessionHistoryView(
+                        sessions: model.historyState.sessions,
+                        documents: model.historyState.documents
+                    )
+                    .frame(minHeight: 620)
                 }
-                .frame(width: 320)
-
-                SurfaceCard {
-                    if let session = model.selectedReviewSession {
-                        SessionDetailView(model: model, session: session)
-                    } else {
-                        EmptyStateCard(text: "Select a session to review it.")
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-    }
-
-    private func sessionDateLabel(_ session: MeetingSessionRecord) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-
-        if let endedAt = session.endedAt {
-            return "\(formatter.string(from: session.startedAt)) to \(formatter.string(from: endedAt))"
-        }
-
-        return "Started \(formatter.string(from: session.startedAt))"
     }
 }
 
@@ -589,6 +567,7 @@ struct SettingsWorkspaceView: View {
                     setupReadinessCard
                     setupCard
                     providerCard
+                    privacyCard
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -761,10 +740,62 @@ struct SettingsWorkspaceView: View {
                 }
                 .buttonStyle(.bordered)
 
+                Picker("Preferred answer style", selection: $model.confidenceMode) {
+                    Text("Balanced").tag("balanced")
+                    Text("Safe").tag("safe")
+                    Text("Assertive").tag("assertive")
+                    Text("Consultative").tag("consultative")
+                }
+                .pickerStyle(.segmented)
+
+                Text(model.preferredResponseStyleSummary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 Toggle("Click through overlay", isOn: Binding(
                     get: { model.clickThroughEnabled },
                     set: { model.setClickThrough($0) }
                 ))
+            }
+        }
+    }
+
+    private var privacyCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Privacy And Data")
+                            .font(.title3.weight(.semibold))
+                        Text("See what stays local, what can leave the machine, and what gets stored.")
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    StatusDot(
+                        title: model.generationProvider == .openAI ? "External API" : "Local-First",
+                        color: model.generationProvider == .openAI ? .orange : .green
+                    )
+                }
+
+                DetailBlock(title: "Response Path", text: model.privacyExecutionSummary)
+                DetailBlock(title: "Transcription Path", text: model.privacyTranscriptionSummary)
+                DetailBlock(title: "Current Provider Status", text: model.providerStatusMessage)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Stored Locally")
+                        .font(.subheadline.weight(.semibold))
+                    ForEach(model.privacyStorageItems, id: \.self) { item in
+                        BulletLine(text: item)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Privacy Boundaries")
+                        .font(.subheadline.weight(.semibold))
+                    ForEach(model.privacyBoundaryItems, id: \.self) { item in
+                        BulletLine(text: item)
+                    }
+                }
             }
         }
     }

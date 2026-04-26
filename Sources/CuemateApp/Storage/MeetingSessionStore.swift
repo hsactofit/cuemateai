@@ -18,7 +18,19 @@ struct MeetingSessionStore: Sendable {
         return try decoder.decode(MeetingSessionLibrary.self, from: data).sessions
     }
 
+    /// Non-throwing variant — returns an empty array on any read or decode error.
+    /// Use this at app startup and in the history coordinator so a corrupt store
+    /// does not crash the app; the bad data stays on disk for manual recovery.
+    func loadSessionsSafely() -> [MeetingSessionRecord] {
+        (try? loadSessions()) ?? []
+    }
+
     func saveSessions(_ sessions: [MeetingSessionRecord]) throws {
+        // Ensure the parent directory exists before writing (handles first-run).
+        let dir = sessionsURL.deletingLastPathComponent()
+        if !FileManager.default.fileExists(atPath: dir.path) {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

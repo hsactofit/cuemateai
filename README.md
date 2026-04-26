@@ -1,141 +1,102 @@
 # Cuemate
 
-Cuemate is a local-first, agentic meeting assistant for macOS designed to help you recover context, think faster, answer better, and act clearly in live conversations.
+Cuemate is a local-first meeting copilot for macOS. It listens to live conversations, helps you recover context and structure answers in the moment, and gives you a practical brief before the meeting starts — all without sending your audio or transcripts anywhere you did not choose.
 
-It sits near your camera, listens locally, turns questions into guidance, and helps you stay in flow during:
+It works across:
 - sales calls
 - demos
-- internal meetings
-- technical discussions
-- client presentations
+- client reviews
+- interviews
+- internal syncs
 
 ## Why Cuemate
 
-You are in a meeting, your name comes up, and suddenly you realize you missed the last part of the conversation.
+You are in a meeting, your name comes up, and you realize you missed the last part of the conversation.
 
 You go blank.
-You say, "Sorry, I missed that."
-And honestly, that happens to all of us.
 
-When you are juggling multiple meetings, tasks, and context switches, it is normal to miss things.
-Staying fully present all the time is hard.
-
-Most meeting software is built for recording, summarizing, and reviewing after the moment is already gone.
-
-Cuemate is built for the live moment.
+Most meeting software is built for recording and summarizing after the moment is already gone. Cuemate is built for the live moment — and for the prep before it and the follow-up after it.
 
 It helps you:
-- recover the thread when you miss context
-- hear the question
-- understand what is happening faster
-- generate a strong answer fast
-- keep a next action ready
-- avoid losing momentum while speaking
-- stay organized while the conversation keeps moving
+- arrive prepared with a clear goal, focus areas, and opening framing
+- recover the thread quickly when you miss context
+- structure a response and identify the next move
+- leave every session with a summary, action items, and a draft follow-up
 
-## Core Product Format
+## Three Surfaces
 
-Cuemate is centered around two simple flows:
+### Start Session
 
-### Quick Start
+Pick a meeting type, attach any relevant documents, and start. Cuemate generates a pre-meeting brief covering your goal, focus areas, likely risks, and how to open the meeting. When you are ready, the live guidance overlay activates.
 
-1. Install runtime and local models
-2. Test microphone, transcript, and overlay placement
-3. Start a session and go live
+The live overlay gives you:
+- the question that was just asked
+- a structured answer
+- a suggested next action
 
-### Question / Answer / Action
+### History
 
-- Question: what was just asked
-- Answer: what you should say now
-- Action: the best next move to keep the conversation progressing
+Every completed session leaves behind a full record: overview, key topics, action items, decision summary, follow-up draft, and the pre-meeting brief that was used. History is local — nothing is sent to a server.
+
+### Settings
+
+Configure your transcription path (Apple Speech or `whisper.cpp`), your AI provider (local heuristic, Ollama, or OpenAI), your speaker identity, and your OpenAI API key (stored in Keychain).
 
 ## What Cuemate Does Today
 
 - Native macOS app built with SwiftUI and AppKit
-- System-level assistant experience for live conversations
 - Floating guidance overlay for in-the-moment help
-- Live microphone capture and transcript pipeline
-- Apple Speech and `whisper.cpp` transcription paths
-- Local heuristic guidance with Ollama and OpenAI options
-- Streaming response preview for lower-latency answer generation
-- Setup flow for runtime install, testing, and live usage
-- Meeting sessions with saved transcript and guidance history
-- Review flow with summaries and follow-up notes
-- Local-first configuration and document storage
+- Live microphone capture with Apple Speech and `whisper.cpp` paths
+- Meeting mode templates: sales call, demo, client review, interview, internal sync, general
+- Pre-meeting briefs: goal, focus areas, likely risks, opening framing, document highlights, prior session note
+- AI brief enrichment via Ollama (local) or OpenAI (optional)
+- Live guidance with intent detection, objection/decision playbooks, and interruption recovery
+- Signal-based confidence scoring that shapes live answer behavior
+- Post-meeting summaries: overview, key topics, action items, decision summary, outcome note
+- Follow-up draft generation with subject line
+- Session history browser with all artifacts persisted locally
+- Document-backed context retrieval for grounded guidance
+- OpenAI key stored in macOS Keychain — never in plaintext config
+- Privacy/transparency panel in Settings showing exactly what stays local
 
-## Product Vision
+## Privacy Model
 
-Cuemate is being shaped into an open-source, privacy-first, agentic assistant for serious live work.
-
-The long-term vision includes:
-- an agentic meeting assistant that reasons over live context, notes, and documents
-- multilingual listening and response workflows
-- stronger offline and local-only operation
-- safer data boundaries and user-controlled model routing
-- autonomous background behavior for small useful tasks
-- richer memory across sessions
-- better cross-call preparation and follow-up actions
-- a more polished, production-ready open-source macOS app
+- Transcription runs on-device via Apple Speech or `whisper.cpp` by default
+- Documents, session records, transcripts, and configuration are stored locally in App Support
+- OpenAI is only contacted when you explicitly configure an API key and select that provider
+- Ollama runs locally — no external network calls
+- Nothing is sent to Cuemate servers (there are none)
 
 ## Capabilities Roadmap
 
 ### Available
 
 - Local-first macOS architecture
-- Camera-adjacent overlay
-- STT testing and setup flow
-- Transcript-driven answer generation
-- Session history and review
-- Ollama streaming guidance
-- Document-backed context retrieval
+- Live overlay with answer and action guidance
+- Meeting mode templates and pre-meeting briefs
+- Post-meeting summaries and follow-up drafts
+- Session history with persisted artifacts
+- Ollama and OpenAI brief generation with heuristic fallback
+- Document-backed retrieval context
+- Signal-based live intelligence and playbook guidance
+- Privacy transparency in Settings
 
 ### Upcoming
 
-- Agentic AI workflows:
-  Background context gathering, next-step planning, and more proactive meeting assistance.
-
-- Multilingual support:
-  Listen and assist across more languages with better language switching and multilingual sessions.
-
-- Offline data safety:
-  Stronger local-only workflows, clearer storage controls, and safer boundaries for sensitive conversations.
-
-- Open-source contributor mode:
-  Better docs, easier local setup, and a cleaner public repo experience.
-
-- Autonomous background help:
-  A more agentic assistant that can run quietly in the background and handle small tasks when asked.
-
-- Speaker-aware meeting intelligence:
-  Better participant labeling and eventually stronger attribution strategies.
-
-- Vision-aware workflows:
-  Smarter screen-context understanding and meeting-context awareness where platform capabilities allow.
-
-- Faster live answer generation:
-  More aggressive low-latency streaming and better interruption handling.
-
-- Meeting memory:
-  Reusable context across sessions so Cuemate gets more useful over time.
-
-## Screens and UX
-
-Cuemate is organized around a few clear surfaces:
-- Setup: install, test, and get ready fast
-- Live: run one real meeting workflow
-- Review: revisit sessions, summaries, and actions
-- Overlay: keep live guidance close when you need help staying on track
+- Agentic AI workflows: background context gathering, next-step planning, proactive assistance
+- Multilingual support: listen and assist across more languages
+- Deeper session memory: reusable context that improves suggestions over time
+- Stronger offline safety: clearer storage controls and local-only defaults
+- Open-source contributor mode: easier local setup and a cleaner public repo experience
 
 ## Tech Stack
 
 - Swift Package Manager
-- SwiftUI
-- AppKit
-- AVFoundation
-- Speech
-- Local file-based storage
-- Ollama
-- OpenAI API optional fallback
+- SwiftUI + AppKit
+- AVFoundation + Speech
+- Local file-based storage (App Support)
+- Ollama (local inference)
+- OpenAI API (optional, key in Keychain)
 
 ## Run Locally
 
@@ -171,23 +132,19 @@ dist/Cuemate.app
 
 ## Open Source Direction
 
-This repository is being prepared to feel more like a real open-source product and less like an internal prototype.
-
-That means the public surface should focus on:
-- product clarity
-- local-first architecture
+This repository is being shaped into a clean, privacy-first open-source product. The public surface prioritizes:
+- product clarity and honest capability claims
+- local-first architecture and user-controlled data
 - real meeting pain points
 - macOS polish
-- privacy and safety boundaries
 - contributor friendliness
-- practical live-use workflows
 
 ## Contributing
 
 Issues, ideas, UX feedback, and pull requests are welcome.
 
-Good contributions include:
-- making the live flow simpler
+Good contributions:
+- simplifying the live flow
 - reducing latency
 - improving macOS polish
 - improving privacy and local-first behavior

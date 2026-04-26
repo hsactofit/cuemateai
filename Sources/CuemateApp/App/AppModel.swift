@@ -149,6 +149,14 @@ struct ConfidenceAssessment: Sendable, Equatable {
     let summary: String
 }
 
+enum SpeakerReadConfidence: String, Sendable {
+    case low
+    case medium
+    case high
+
+    var title: String { rawValue.capitalized }
+}
+
 enum LiveIntent: String, Sendable {
     case general
     case pricing
@@ -483,6 +491,7 @@ final class AppModel: ObservableObject {
     @Published var sessionDraftTitle = ""
     @Published var meetingSessions: [MeetingSessionRecord] = []
     @Published var selectedSessionID: UUID?
+    @Published var historyState = HistoryState(sessions: [], documents: [])
 
     let appPaths: AppPaths
 
@@ -823,7 +832,7 @@ final class AppModel: ObservableObject {
     }
 
     var latestQuestionText: String {
-        if let otherLine = liveContextSegments().first(where: { normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName) })?.text,
+        if let otherLine = latestExternalSegment?.text,
            !otherLine.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return otherLine
         }
@@ -874,6 +883,31 @@ final class AppModel: ObservableObject {
         return context.joined(separator: "  ")
     }
 
+    var speakerReadSummary: String {
+        let role = collaboratorRoleLabel
+        let level = speakerReadConfidence.title
+        return "\(role) read \(level.lowercased())"
+    }
+
+    var speakerReadConfidence: SpeakerReadConfidence {
+        guard let latestExternalSegment else { return .low }
+
+        let trimmed = latestExternalSegment.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return .low
+        }
+
+        if isLikelyOtherSpeaker(text: trimmed.lowercased()) && latestExternalSegment.confidence >= 0.72 {
+            return .high
+        }
+
+        if latestExternalSegment.confidence >= 0.55 || isLikelyOtherSpeaker(text: trimmed.lowercased()) {
+            return .medium
+        }
+
+        return .low
+    }
+
     var overlayStatusSummary: String {
         switch overlayState {
         case .recovery:
@@ -908,42 +942,43 @@ final class AppModel: ObservableObject {
 
     var suggestedResponseMode: ResponseMode {
         let assessment = currentConfidenceAssessment
+        let preferredStyle = confidenceMode
 
         if manualInterruptionActive || assessment.level == .low {
             switch detectedIntent {
             case .clarification:
                 return .consultative
             default:
-                return .safe
+                return preferredStyle == "assertive" ? .direct : .safe
             }
         }
 
         if assessment.level == .medium {
             switch detectedIntent {
             case .decision, .nextStep:
-                return .direct
+                return preferredStyle == "consultative" ? .consultative : .direct
             case .proof:
                 return .proof
             case .clarification:
                 return .consultative
             case .pricing, .objection:
-                return .safe
+                return preferredStyle == "assertive" ? .direct : .safe
             case .general:
-                return .direct
+                return preferredStyle == "safe" ? .safe : .direct
             }
         }
 
         switch detectedIntent {
         case .pricing, .objection:
-            return .safe
+            return preferredStyle == "assertive" ? .direct : .safe
         case .decision, .nextStep:
-            return .close
+            return preferredStyle == "consultative" ? .consultative : .close
         case .proof:
             return .proof
         case .clarification:
             return .consultative
         case .general:
-            return .direct
+            return preferredStyle == "safe" ? .safe : .direct
         }
     }
 
@@ -953,6 +988,32 @@ final class AppModel: ObservableObject {
 
     var confidenceSignalSummary: String {
         currentConfidenceAssessment.summary
+    }
+
+    var preferredResponseStyleTitle: String {
+        switch confidenceMode {
+        case "safe":
+            return "Safe"
+        case "assertive":
+            return "Assertive"
+        case "consultative":
+            return "Consultative"
+        default:
+            return "Balanced"
+        }
+    }
+
+    var preferredResponseStyleSummary: String {
+        switch confidenceMode {
+        case "safe":
+            return "Bias toward lower-risk answers and quick verification."
+        case "assertive":
+            return "Bias toward direct answers and stronger next-step framing."
+        case "consultative":
+            return "Bias toward collaborative language and guided follow-up."
+        default:
+            return "Balance directness, caution, and forward motion."
+        }
     }
 
     var liveMomentLabel: String {
@@ -971,6 +1032,40 @@ final class AppModel: ObservableObject {
             return "Clarification"
         case .general:
             return "General"
+        }
+    }
+
+    var meetingModeFocusSummary: String {
+        switch meetingMode {
+        case .sales:
+            return "Keep the conversation moving toward business value, a small commitment, and a concrete next step."
+        case .demo:
+            return "Anchor everything in workflow value and the next best thing to show."
+        case .clientReview:
+            return "Lead with progress, risk clarity, and calm accountability."
+        case .interview:
+            return "Answer directly, tie it to outcomes, and keep one example ready."
+        case .internalSync:
+            return "Push toward owner, blocker, decision, and next action."
+        case .general:
+            return "Keep the answer clear, useful, and easy to act on."
+        }
+    }
+
+    var meetingModeRiskSummary: String {
+        switch meetingMode {
+        case .sales:
+            return "Do not drift into feature detail before value, scope, and next step are clear."
+        case .demo:
+            return "Do not feature-dump when one workflow proof would move the conversation faster."
+        case .clientReview:
+            return "Do not sound defensive when the moment really needs clarity and ownership."
+        case .interview:
+            return "Do not over-answer when a tighter outcome-first story would land better."
+        case .internalSync:
+            return "Do not leave without a clear owner or let alignment stay abstract."
+        case .general:
+            return "Do not add more detail than the decision actually needs."
         }
     }
 
@@ -1025,7 +1120,20 @@ final class AppModel: ObservableObject {
         case .nextStep:
             return "Make the next step specific: owner, timeline, and outcome."
         case .general:
-            return "Keep it short, clear, and easy to act on."
+            switch meetingMode {
+            case .sales:
+                return "Keep it short, tie it to value, and move toward the next commitment."
+            case .demo:
+                return "Keep it short, tie it to workflow value, and guide what to show next."
+            case .clientReview:
+                return "Keep it calm, clear, and anchored in progress plus the next action."
+            case .interview:
+                return "Answer directly first, then connect it to an outcome with one example ready."
+            case .internalSync:
+                return "Keep it practical and decision-oriented: owner, blocker, next step."
+            case .general:
+                return "Keep it short, clear, and easy to act on."
+            }
         }
     }
 
@@ -1104,6 +1212,10 @@ final class AppModel: ObservableObject {
 
     private var currentDecisionKind: DecisionKind {
         detectDecisionKind(from: latestQuestionText)
+    }
+
+    private var latestExternalSegment: TranscriptSegment? {
+        liveContextSegments().first(where: { normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName) })
     }
 
     var activePlaybookTitle: String {
@@ -1353,6 +1465,98 @@ final class AppModel: ObservableObject {
 
         if let lastSession = meetingSessions.first(where: { !$0.isActive }) {
             items.append("Last saved session: \(lastSession.title). Review follow-up commitments before you start.")
+        }
+
+        return items
+    }
+
+    var recurringMemoryItems: [String] {
+        let priorSessions = meetingSessions
+            .filter { !$0.isActive && $0.configuration.meetingType == configuration.meetingType }
+            .prefix(4)
+
+        guard !priorSessions.isEmpty else {
+            return ["No recurring memory yet. Complete a few sessions to build continuity here."]
+        }
+
+        var items: [String] = []
+
+        if let lastSummary = priorSessions.compactMap(\.summary).first {
+            if !lastSummary.outcomeNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                items.append("Last outcome: \(lastSummary.outcomeNote)")
+            }
+            if let firstAction = lastSummary.actionItems.first, !firstAction.isEmpty {
+                items.append("Recent follow-through: \(firstAction)")
+            }
+        }
+
+        let topicCounts = Dictionary(grouping: priorSessions.flatMap { $0.summary?.keyTopics ?? [] }.map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }.filter { !$0.isEmpty }, by: { $0 })
+            .mapValues(\.count)
+            .sorted { lhs, rhs in
+                if lhs.value == rhs.value {
+                    return lhs.key < rhs.key
+                }
+                return lhs.value > rhs.value
+            }
+            .prefix(3)
+            .map(\.key)
+
+        if !topicCounts.isEmpty {
+            items.append("Recurring themes: " + topicCounts.joined(separator: ", "))
+        }
+
+        let recurringRisks = priorSessions.compactMap { $0.summary?.decisionSummary }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .prefix(1)
+
+        if let risk = recurringRisks.first {
+            items.append("Decision pattern: \(risk)")
+        }
+
+        return Array(items.prefix(3))
+    }
+
+    var privacyExecutionSummary: String {
+        switch generationProvider {
+        case .localHeuristic:
+            return "Responses stay on this machine with the local heuristic engine."
+        case .ollama:
+            return "Responses use the local Ollama runtime on this machine."
+        case .openAI:
+            return "Response generation can send meeting context to the OpenAI API when enabled."
+        }
+    }
+
+    var privacyTranscriptionSummary: String {
+        switch transcriptionProvider {
+        case .appleSpeech:
+            return "Transcription uses Apple Speech on-device when available through the selected system path."
+        case .whisperCpp:
+            return "Transcription uses the local whisper.cpp runtime and model files on this machine."
+        }
+    }
+
+    var privacyStorageItems: [String] {
+        [
+            "\(importedDocuments.count) document(s) stored locally for retrieval context.",
+            "\(meetingSessions.count) meeting session(s) stored locally with transcript, guidance, and recap data.",
+            openAIKeyPresent ? "OpenAI API key is stored locally in Keychain." : "No OpenAI API key is currently stored."
+        ]
+    }
+
+    var privacyBoundaryItems: [String] {
+        var items = [
+            "Overlay content, meeting sessions, briefs, and follow-up artifacts are stored in local app support data.",
+            "Provider status shows which response path is active before and during a session."
+        ]
+
+        if generationProvider == .openAI {
+            items.append("When OpenAI is selected, the meeting request payload may leave this machine for response generation.")
+        } else {
+            items.append("With local response providers selected, meeting response generation stays on this machine.")
         }
 
         return items
@@ -1624,41 +1828,65 @@ final class AppModel: ObservableObject {
         if let existingIndex = meetingSessions.firstIndex(where: \.isActive) {
             meetingSessions[existingIndex].title = title
             meetingSessions[existingIndex].configuration = configuration
-            selectedSessionID = meetingSessions[existingIndex].id
+            let sessionID = meetingSessions[existingIndex].id
+            selectedSessionID = sessionID
             saveMeetingSessions()
+            Task {
+                await generateBriefForSession(sessionID: sessionID)
+            }
             appendLog("Updated active meeting session")
             return
         }
 
-        let session = MeetingSessionRecord(
-            id: UUID(),
-            title: title,
-            startedAt: Date(),
-            endedAt: nil,
+        let session = MeetingSessionRecord.makeNew(
             configuration: configuration,
-            transcriptSegments: [],
-            guidanceHistory: [],
-            documentIDs: importedDocuments.map(\.id),
-            summary: nil,
-            followUpNotes: ""
+            title: title,
+            documentIDs: importedDocuments.map(\.id)
         )
-        meetingSessions.insert(session, at: 0)
+
+        do {
+            try meetingSessionStore.createSession(session)
+            loadMeetingSessions()
+        } catch {
+            meetingSessions.insert(session, at: 0)
+            selectedSessionID = session.id
+            saveMeetingSessions()
+            appendLog("Fell back to local session creation: \(error.localizedDescription)")
+        }
+
         selectedSessionID = session.id
         selectedSection = .live
-        saveMeetingSessions()
         appendLog("Started meeting session \(title)")
+
+        Task {
+            await generateBriefForSession(sessionID: session.id)
+        }
     }
 
     func endMeetingSession() {
         guard let index = meetingSessions.firstIndex(where: \.isActive) else { return }
-        meetingSessions[index].endedAt = Date()
-        meetingSessions[index].summary = postMeetingSummaryService.generateSummary(
+        let sessionID = meetingSessions[index].id
+        let endedAt = Date()
+        let result = postMeetingSummaryService.generateResult(
             for: meetingSessions[index],
             documents: importedDocuments
         )
-        selectedSessionID = meetingSessions[index].id
+
+        meetingSessions[index].endedAt = endedAt
+        meetingSessions[index].summary = result.summary
+        meetingSessions[index].followUpArtifact = result.followUpArtifact
+
+        do {
+            try meetingSessionStore.saveSummaryResult(result, forSessionID: sessionID)
+            try meetingSessionStore.endSession(id: sessionID, at: endedAt)
+            loadMeetingSessions()
+        } catch {
+            saveMeetingSessions()
+            appendLog("Fell back to full session save on end: \(error.localizedDescription)")
+        }
+
+        selectedSessionID = sessionID
         selectedSection = .review
-        saveMeetingSessions()
         appendLog("Ended meeting session \(meetingSessions[index].title)")
     }
 
@@ -1691,6 +1919,7 @@ final class AppModel: ObservableObject {
         } catch {
             appendLog("No saved document library found yet")
         }
+        refreshHistoryState()
     }
 
     private func configureAudioCallbacks() {
@@ -1881,6 +2110,7 @@ final class AppModel: ObservableObject {
         } catch {
             appendLog("Using empty meeting session history")
         }
+        refreshHistoryState()
     }
 
     private func saveMeetingSessions() {
@@ -1889,6 +2119,7 @@ final class AppModel: ObservableObject {
         } catch {
             appendLog("Failed to save meeting sessions: \(error.localizedDescription)")
         }
+        refreshHistoryState()
     }
 
     private func loadSecrets() {
@@ -2035,6 +2266,60 @@ final class AppModel: ObservableObject {
         saveMeetingSessions()
     }
 
+    private func generateBriefForSession(sessionID: UUID) async {
+        let snapshot = loadDocumentSnapshot()
+        let input = BriefCoordinator.Input(
+            configuration: configuration,
+            snapshot: snapshot,
+            documentIDs: importedDocuments.map(\.id),
+            priorSessions: meetingSessions.filter { !$0.isActive },
+            strategy: selectedBriefGenerationStrategy()
+        )
+
+        let brief = await BriefCoordinator().build(from: input)
+
+        do {
+            try meetingSessionStore.saveBrief(brief, forSessionID: sessionID)
+        } catch {
+            appendLog("Failed to persist meeting brief: \(error.localizedDescription)")
+        }
+
+        if let index = meetingSessions.firstIndex(where: { $0.id == sessionID }) {
+            meetingSessions[index].brief = brief
+        }
+        refreshHistoryState()
+        appendLog("Prepared session brief")
+    }
+
+    private func loadDocumentSnapshot() -> DocumentLibrarySnapshot {
+        (try? documentIngestion.loadExistingLibrary()) ?? DocumentLibrarySnapshot(documents: importedDocuments, chunks: [])
+    }
+
+    private func selectedBriefGenerationStrategy() -> BriefGenerationStrategy {
+        switch generationProvider {
+        case .ollama:
+            return .ollama(model: "qwen3:4b")
+        case .openAI:
+            if let apiKey = ((try? keychainStore.load(account: "openai_api_key")) ?? nil), !apiKey.isEmpty {
+                return .openAI(apiKey: apiKey, model: "gpt-5.4-mini")
+            }
+            return .heuristicOnly
+        case .localHeuristic:
+            return .heuristicOnly
+        }
+    }
+
+    private func refreshHistoryState() {
+        let snapshot = loadDocumentSnapshot()
+        let coordinator = SessionHistoryCoordinator(store: meetingSessionStore, documentLibrary: snapshot)
+
+        do {
+            historyState = try coordinator.loadState()
+        } catch {
+            historyState = HistoryState(sessions: meetingSessions, documents: snapshot.documents)
+        }
+    }
+
     private func defaultSessionTitle(for date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -2067,6 +2352,10 @@ final class AppModel: ObservableObject {
 
         if isLikelyOtherSpeaker(text: normalizedText) {
             return collaboratorRoleLabel
+        }
+
+        if isLikelyUserResponse(text: normalizedText) {
+            return userSpeaker.isEmpty ? "You" : userDisplayName
         }
 
         let answerWords = Set(normalizedWords(from: overlayContent.nowSay))
@@ -2104,6 +2393,33 @@ final class AppModel: ObservableObject {
         ]
 
         return cues.contains(where: text.contains)
+    }
+
+    private func isLikelyUserResponse(text: String) -> Bool {
+        guard !text.isEmpty else { return false }
+
+        let answerCues = [
+            "i think",
+            "i would",
+            "we can",
+            "we should",
+            "the best next step",
+            "the clearest answer",
+            "the safest move",
+            "my view is",
+            "from my side",
+            "what i would do"
+        ]
+
+        if answerCues.contains(where: text.contains) {
+            return true
+        }
+
+        let answerWords = Set(normalizedWords(from: overlayContent.nowSay))
+        let spokenWords = normalizedWords(from: text)
+        guard !spokenWords.isEmpty else { return false }
+        let overlapCount = spokenWords.filter { answerWords.contains($0) }.count
+        return overlapCount >= min(max(3, spokenWords.count / 2), 6)
     }
 
     private func detectIntent(from text: String) -> LiveIntent {
@@ -2380,6 +2696,10 @@ final class AppModel: ObservableObject {
         let interrupted = manualInterruptionActive
         let lowConfidence = confidence == .low
 
+        func finalize(_ value: String) -> String {
+            personalizedPrimaryResponse(from: value, confidence: confidence)
+        }
+
         switch intent {
         case .objection:
             let base = sentence.isEmpty
@@ -2388,52 +2708,52 @@ final class AppModel: ObservableObject {
             switch currentObjectionKind {
             case .budget:
                 if interrupted || lowConfidence {
-                    return "That makes sense. We can start smaller, prove value fast, and expand only if it earns the spend."
+                    return finalize("That makes sense. We can start smaller, prove value fast, and expand only if it earns the spend.")
                 }
-                return ensureTwoSentenceShape(
+                return finalize(ensureTwoSentenceShape(
                     primary: base,
                     followUp: "We can reduce the starting scope, prove the outcome quickly, and only expand once the value is clear."
-                )
+                ))
             case .timing:
                 if interrupted || lowConfidence {
-                    return "That timing concern makes sense. The safest move is one smaller next step that fits the current window."
+                    return finalize("That timing concern makes sense. The safest move is one smaller next step that fits the current window.")
                 }
-                return ensureTwoSentenceShape(
+                return finalize(ensureTwoSentenceShape(
                     primary: base,
                     followUp: "We can keep momentum with one small step now instead of forcing the full rollout immediately."
-                )
+                ))
             case .trust:
                 if interrupted || lowConfidence {
-                    return "That concern makes sense. The safest move is to validate with one proof point or a low-risk next step first."
+                    return finalize("That concern makes sense. The safest move is to validate with one proof point or a low-risk next step first.")
                 }
-                return ensureTwoSentenceShape(
+                return finalize(ensureTwoSentenceShape(
                     primary: base,
                     followUp: "We can de-risk this with one concrete proof point and a reversible next step before asking for more."
-                )
+                ))
             case .complexity:
                 if interrupted || lowConfidence {
-                    return "That makes sense. The best next step is to keep the path simple and start with the least disruptive move."
+                    return finalize("That makes sense. The best next step is to keep the path simple and start with the least disruptive move.")
                 }
-                return ensureTwoSentenceShape(
+                return finalize(ensureTwoSentenceShape(
                     primary: base,
                     followUp: "We can simplify the first step, avoid extra change, and prove the workflow before expanding."
-                )
+                ))
             case .adoption:
                 if interrupted || lowConfidence {
-                    return "That is fair. The safest move is to start with a small group and make adoption easy before scaling."
+                    return finalize("That is fair. The safest move is to start with a small group and make adoption easy before scaling.")
                 }
-                return ensureTwoSentenceShape(
+                return finalize(ensureTwoSentenceShape(
                     primary: base,
                     followUp: "We can begin with a small team, support adoption closely, and expand only once usage becomes easy."
-                )
+                ))
             case .general:
                 if interrupted || lowConfidence {
-                    return "That concern makes sense. The safest next step is to keep the scope small and reduce risk first."
+                    return finalize("That concern makes sense. The safest next step is to keep the scope small and reduce risk first.")
                 }
-                return ensureTwoSentenceShape(
+                return finalize(ensureTwoSentenceShape(
                     primary: base,
                     followUp: "We can keep the scope small, prove value quickly, and expand only after it works."
-                )
+                ))
             }
         case .decision:
             let base = sentence.isEmpty
@@ -2442,89 +2762,89 @@ final class AppModel: ObservableObject {
             switch currentDecisionKind {
             case .approval:
                 if interrupted || lowConfidence {
-                    return "The best next move is to ask for one small approval that moves this forward now."
+                    return finalize("The best next move is to ask for one small approval that moves this forward now.")
                 }
-                return ensureTwoSentenceShape(
+                return finalize(ensureTwoSentenceShape(
                     primary: base,
                     followUp: "If this makes sense, we should define the exact approval needed and make that decision easy to say yes to."
-                )
+                ))
             case .owner:
                 if interrupted || lowConfidence {
-                    return "The next move is to name one owner and one action so this does not stay vague."
+                    return finalize("The next move is to name one owner and one action so this does not stay vague.")
                 }
-                return ensureTwoSentenceShape(
+                return finalize(ensureTwoSentenceShape(
                     primary: base,
                     followUp: "If this direction is right, the next step is to lock one owner, one action, and one date now."
-                )
+                ))
             case .timeline:
                 if interrupted || lowConfidence {
-                    return "The next move is to agree on one concrete date and the smallest step needed to protect it."
+                    return finalize("The next move is to agree on one concrete date and the smallest step needed to protect it.")
                 }
-                return ensureTwoSentenceShape(
+                return finalize(ensureTwoSentenceShape(
                     primary: base,
                     followUp: "If this is moving forward, we should anchor the next date now and back into the smallest step required."
-                )
+                ))
             case .pilot:
                 if interrupted || lowConfidence {
-                    return "The best next move is to frame this as a small pilot with a clear owner and success goal."
+                    return finalize("The best next move is to frame this as a small pilot with a clear owner and success goal.")
                 }
-                return ensureTwoSentenceShape(
+                return finalize(ensureTwoSentenceShape(
                     primary: base,
                     followUp: "If this makes sense, the next step is to lock a focused pilot with an owner, timing, and success signal."
-                )
+                ))
             case .general:
                 if interrupted || lowConfidence {
-                    return "The best next move is to make the next step small, clear, and easy to own now."
+                    return finalize("The best next move is to make the next step small, clear, and easy to own now.")
                 }
-                return ensureTwoSentenceShape(
+                return finalize(ensureTwoSentenceShape(
                     primary: base,
                     followUp: "If this direction makes sense, the next step is to lock the owner and timing now."
-                )
+                ))
             }
         case .pricing:
             let base = sentence.isEmpty
                 ? "The right way to think about price is through the starting scope and the value we need to prove first."
                 : sentence
             if interrupted || lowConfidence {
-                return "The best way to frame price is through the starting scope and the value we need to prove first."
+                return finalize("The best way to frame price is through the starting scope and the value we need to prove first.")
             }
-            return ensureTwoSentenceShape(
+            return finalize(ensureTwoSentenceShape(
                 primary: base,
                 followUp: "We should size the first rollout around the smallest team that can validate the outcome."
-            )
+            ))
         case .nextStep:
             let base = sentence.isEmpty
                 ? "The clearest answer is to leave this meeting with one specific next step."
                 : sentence
             if interrupted || lowConfidence {
-                return "The clearest answer is to leave with one specific next step, one owner, and one timeline."
+                return finalize("The clearest answer is to leave with one specific next step, one owner, and one timeline.")
             }
-            return ensureTwoSentenceShape(
+            return finalize(ensureTwoSentenceShape(
                 primary: base,
                 followUp: "Let us make that next step concrete with an owner, timeline, and expected outcome."
-            )
+            ))
         case .proof:
             let base = sentence.isEmpty
                 ? "The clearest way to answer that is with one concrete proof point."
                 : sentence
             if interrupted || lowConfidence {
-                return "The clearest way to answer that is with one concrete proof point tied to the result they care about."
+                return finalize("The clearest way to answer that is with one concrete proof point tied to the result they care about.")
             }
-            return ensureTwoSentenceShape(
+            return finalize(ensureTwoSentenceShape(
                 primary: base,
                 followUp: "The important thing is to connect the example directly to the result they care about."
-            )
+            ))
         case .clarification, .general:
             break
         }
 
-        guard confidence == .low else { return trimmed }
+        guard confidence == .low else { return finalize(trimmed) }
 
         if trimmed.isEmpty {
-            return "The short answer is to confirm the goal, give the safest next step, and clarify what matters most."
+            return finalize("The short answer is to confirm the goal, give the safest next step, and clarify what matters most.")
         }
 
-        return sentence.hasSuffix(".") ? sentence : sentence + "."
+        return finalize(sentence.hasSuffix(".") ? sentence : sentence + ".")
     }
 
     private func shapedReason(from text: String, confidence: GuidanceConfidence, intent: LiveIntent) -> String {
@@ -2566,6 +2886,48 @@ final class AppModel: ObservableObject {
         case .proof:
             return "Ask whether they want a concrete example, a customer proof point, or a short walkthrough."
         case .clarification, .general:
+            return personalizedNextStep(from: text)
+        }
+    }
+
+    private func personalizedPrimaryResponse(from text: String, confidence: GuidanceConfidence) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return trimmed }
+
+        switch confidenceMode {
+        case "safe":
+            if confidence == .high {
+                return trimmed
+            }
+            let first = firstSentence(in: trimmed)
+            return first.hasSuffix(".") ? first : first + "."
+        case "assertive":
+            if trimmed.lowercased().hasPrefix("we can ") {
+                return "The best next step is to " + trimmed.dropFirst(7)
+            }
+            return trimmed
+        case "consultative":
+            if confidence != .high {
+                return trimmed
+            }
+            return ensureTwoSentenceShape(
+                primary: trimmed,
+                followUp: "That keeps the answer collaborative while we confirm what matters most."
+            )
+        default:
+            return trimmed
+        }
+    }
+
+    private func personalizedNextStep(from text: String) -> String {
+        switch confidenceMode {
+        case "safe":
+            return "Ask one short clarifying question before committing further."
+        case "assertive":
+            return text.isEmpty ? "Ask for one clear next step, one owner, and one date." : text
+        case "consultative":
+            return "Ask what matters most to them before taking the next step."
+        default:
             return text
         }
     }
