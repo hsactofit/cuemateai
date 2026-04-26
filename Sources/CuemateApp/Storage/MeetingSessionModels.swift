@@ -43,3 +43,30 @@ struct MeetingSessionRecord: Identifiable, Codable, Sendable, Equatable {
 struct MeetingSessionLibrary: Codable, Sendable {
     var sessions: [MeetingSessionRecord]
 }
+
+// MARK: - Factory
+
+extension MeetingSessionRecord {
+    /// Creates a new session record ready to start.
+    /// Sets `startedAt` to now; `endedAt` is nil until `endSession` is called.
+    static func makeNew(
+        configuration: MeetingConfiguration,
+        title: String,
+        documentIDs: [UUID] = []
+    ) -> MeetingSessionRecord {
+        MeetingSessionRecord(
+            id: UUID(),
+            title: title,
+            startedAt: Date(),
+            endedAt: nil,
+            configuration: configuration,
+            transcriptSegments: [],
+            guidanceHistory: [],
+            documentIDs: documentIDs,
+            summary: nil,
+            followUpNotes: "",
+            brief: nil,
+            followUpArtifact: nil
+        )
+    }
+}

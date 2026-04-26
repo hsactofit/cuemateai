@@ -380,6 +380,7 @@ struct StartSessionWorkspaceView: View {
                 CompactMetric(title: "Transcription", value: model.transcriptionProvider.title)
                 CompactMetric(title: "Response", value: providerLabel(model.generationProvider))
                 CompactMetric(title: "Intent", value: model.detectedIntent.title)
+                CompactMetric(title: "Moment", value: model.liveMomentLabel)
                 CompactMetric(title: "Mode", value: model.suggestedResponseMode.title)
                 CompactMetric(title: "Signal", value: model.confidenceScoreLabel)
                 CompactMetric(title: "Voice", value: model.voiceActivityState.rawValue.capitalized)
@@ -410,6 +411,8 @@ struct StartSessionWorkspaceView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text(model.activePlaybookTitle)
                     .font(.title3.weight(.semibold))
+
+                DetailBlock(title: "Current Moment", text: model.liveMomentLabel)
 
                 ForEach(model.activePlaybookSteps) { step in
                     VStack(alignment: .leading, spacing: 4) {

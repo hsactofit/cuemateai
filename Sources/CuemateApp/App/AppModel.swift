@@ -203,6 +203,44 @@ enum ResponseMode: String, Sendable {
     }
 }
 
+enum ObjectionKind: String, Sendable {
+    case budget
+    case timing
+    case trust
+    case complexity
+    case adoption
+    case general
+
+    var title: String {
+        switch self {
+        case .budget: "Budget"
+        case .timing: "Timing"
+        case .trust: "Trust"
+        case .complexity: "Complexity"
+        case .adoption: "Adoption"
+        case .general: "General"
+        }
+    }
+}
+
+enum DecisionKind: String, Sendable {
+    case approval
+    case owner
+    case timeline
+    case pilot
+    case general
+
+    var title: String {
+        switch self {
+        case .approval: "Approval"
+        case .owner: "Owner"
+        case .timeline: "Timeline"
+        case .pilot: "Pilot"
+        case .general: "General"
+        }
+    }
+}
+
 struct PlaybookStep: Identifiable, Sendable, Equatable {
     let id = UUID()
     let title: String
@@ -469,6 +507,10 @@ final class AppModel: ObservableObject {
     private var isAutoGenerating = false
     private var lastGuidanceRefreshAt: Date?
     private var lastAnswerCompletionAt: Date?
+    private var lastQuestionDetectedAt: Date?
+    private var lastInterruptionClearedAt: Date?
+    private var lastSpeakingActivityAt: Date?
+    private var lastOtherSpeakerTurnAt: Date?
 
     init(
         appPaths: AppPaths = .default,
@@ -913,6 +955,25 @@ final class AppModel: ObservableObject {
         currentConfidenceAssessment.summary
     }
 
+    var liveMomentLabel: String {
+        switch detectedIntent {
+        case .objection:
+            return "Objection: \(currentObjectionKind.title)"
+        case .decision:
+            return "Decision: \(currentDecisionKind.title)"
+        case .pricing:
+            return "Pricing"
+        case .nextStep:
+            return "Next Step"
+        case .proof:
+            return "Proof"
+        case .clarification:
+            return "Clarification"
+        case .general:
+            return "General"
+        }
+    }
+
     var coachingCue: String {
         if overlayState == .recovery {
             return "Answer short first, then ask one clarifying question."
@@ -930,9 +991,33 @@ final class AppModel: ObservableObject {
         case .pricing:
             return "Do not defend price first. Frame value, scope, and rollout size."
         case .objection:
-            return "Lower the risk. Acknowledge concern, then give the simplest safe path."
+            switch currentObjectionKind {
+            case .budget:
+                return "Do not fight the number. Shrink scope first, then reconnect spend to value."
+            case .timing:
+                return "Reduce the time risk. Offer the smallest next step that fits their window."
+            case .trust:
+                return "Lower the trust risk. Use proof, references, or a safer rollout path."
+            case .complexity:
+                return "Simplify the motion. Make the path sound easier than the fear behind it."
+            case .adoption:
+                return "Answer the human risk. Show how the team can adopt this without heavy change."
+            case .general:
+                return "Lower the risk. Acknowledge concern, then give the simplest safe path."
+            }
         case .decision:
-            return "Push toward commitment. Name the next step and who owns it."
+            switch currentDecisionKind {
+            case .approval:
+                return "Make approval easy. Reduce the ask, then name the exact decision on the table."
+            case .owner:
+                return "Push for ownership. End with one owner, one move, and one date."
+            case .timeline:
+                return "Turn the decision into timing. Anchor on the next date, not abstract alignment."
+            case .pilot:
+                return "Use the pilot as the decision bridge. Keep the commitment small and outcome-focused."
+            case .general:
+                return "Push toward commitment. Name the next step and who owns it."
+            }
         case .clarification:
             return "Answer directly first, then add one supporting detail."
         case .proof:
@@ -1013,12 +1098,20 @@ final class AppModel: ObservableObject {
         )
     }
 
+    private var currentObjectionKind: ObjectionKind {
+        detectObjectionKind(from: latestQuestionText)
+    }
+
+    private var currentDecisionKind: DecisionKind {
+        detectDecisionKind(from: latestQuestionText)
+    }
+
     var activePlaybookTitle: String {
         switch detectedIntent {
         case .objection:
-            return "Objection Playbook"
+            return "\(currentObjectionKind.title) Objection Playbook"
         case .decision:
-            return "Decision Playbook"
+            return "\(currentDecisionKind.title) Decision Playbook"
         case .pricing:
             return "Pricing Playbook"
         case .nextStep:
@@ -1031,17 +1124,77 @@ final class AppModel: ObservableObject {
     var activePlaybookSteps: [PlaybookStep] {
         switch detectedIntent {
         case .objection:
-            return [
-                PlaybookStep(title: "Acknowledge", detail: "Show that you understand the concern before pushing a solution."),
-                PlaybookStep(title: "Reduce Risk", detail: "Offer the smallest safe path instead of the full commitment."),
-                PlaybookStep(title: "Reconfirm Goal", detail: "Tie the answer back to the result they actually care about.")
-            ]
+            switch currentObjectionKind {
+            case .budget:
+                return [
+                    PlaybookStep(title: "Shrink Scope", detail: "Make the first step smaller before discussing the full investment."),
+                    PlaybookStep(title: "Reconnect Value", detail: "Tie cost to the outcome, team size, or rollout stage they care about."),
+                    PlaybookStep(title: "Qualify Range", detail: "Ask what budget range or starting team size feels realistic.")
+                ]
+            case .timing:
+                return [
+                    PlaybookStep(title: "Acknowledge Timing", detail: "Show that you understand the pressure or competing priorities."),
+                    PlaybookStep(title: "Reduce The Ask", detail: "Offer the smallest next move that can happen inside their current window."),
+                    PlaybookStep(title: "Protect Momentum", detail: "Lock one date or checkpoint so the conversation does not drift.")
+                ]
+            case .trust:
+                return [
+                    PlaybookStep(title: "Lower Perceived Risk", detail: "Acknowledge the trust gap without sounding defensive."),
+                    PlaybookStep(title: "Use Proof", detail: "Give one concrete reference, example, or validation point."),
+                    PlaybookStep(title: "Offer A Safe Path", detail: "Propose a reversible step that lets them validate before committing.")
+                ]
+            case .complexity:
+                return [
+                    PlaybookStep(title: "Simplify The Story", detail: "Translate the answer into the smallest understandable path."),
+                    PlaybookStep(title: "Reduce Change", detail: "Show what does not need to change yet."),
+                    PlaybookStep(title: "Anchor On First Win", detail: "Focus on one practical outcome instead of the full system.")
+                ]
+            case .adoption:
+                return [
+                    PlaybookStep(title: "Acknowledge Team Friction", detail: "Recognize that adoption risk is usually about change load, not only features."),
+                    PlaybookStep(title: "Start Small", detail: "Offer a first group or use case that can adopt without disrupting everyone."),
+                    PlaybookStep(title: "Show Support Path", detail: "Make training, onboarding, or rollout support feel easy and specific.")
+                ]
+            case .general:
+                return [
+                    PlaybookStep(title: "Acknowledge", detail: "Show that you understand the concern before pushing a solution."),
+                    PlaybookStep(title: "Reduce Risk", detail: "Offer the smallest safe path instead of the full commitment."),
+                    PlaybookStep(title: "Reconfirm Goal", detail: "Tie the answer back to the result they actually care about.")
+                ]
+            }
         case .decision:
-            return [
-                PlaybookStep(title: "State The Move", detail: "Name the clearest next decision in one sentence."),
-                PlaybookStep(title: "Make It Small", detail: "Keep the next commitment easy to say yes to."),
-                PlaybookStep(title: "Assign Ownership", detail: "Close with who owns the next step and when it happens.")
-            ]
+            switch currentDecisionKind {
+            case .approval:
+                return [
+                    PlaybookStep(title: "Name The Decision", detail: "Say exactly what approval is needed right now."),
+                    PlaybookStep(title: "Keep It Reversible", detail: "Frame the move as a small commitment, not a full locked-in outcome."),
+                    PlaybookStep(title: "Confirm The Path", detail: "Ask what needs to happen for approval to move today.")
+                ]
+            case .owner:
+                return [
+                    PlaybookStep(title: "Choose One Owner", detail: "Do not let the next step belong to everyone."),
+                    PlaybookStep(title: "Name The Move", detail: "Pair the owner with one explicit action."),
+                    PlaybookStep(title: "Set The Date", detail: "Anchor the action to a real date or checkpoint.")
+                ]
+            case .timeline:
+                return [
+                    PlaybookStep(title: "Anchor The Date", detail: "Turn alignment into a specific time commitment."),
+                    PlaybookStep(title: "Back Into The Step", detail: "Pick the smallest step that protects that timing."),
+                    PlaybookStep(title: "Remove Blockers", detail: "Ask what could delay the date and how to remove it now.")
+                ]
+            case .pilot:
+                return [
+                    PlaybookStep(title: "Use Pilot Framing", detail: "Make the next commitment feel like validation, not a full rollout."),
+                    PlaybookStep(title: "Define Success", detail: "Name what the pilot should prove and for whom."),
+                    PlaybookStep(title: "Lock Owner And Timing", detail: "Leave with a responsible owner and a start point.")
+                ]
+            case .general:
+                return [
+                    PlaybookStep(title: "State The Move", detail: "Name the clearest next decision in one sentence."),
+                    PlaybookStep(title: "Make It Small", detail: "Keep the next commitment easy to say yes to."),
+                    PlaybookStep(title: "Assign Ownership", detail: "Close with who owns the next step and when it happens.")
+                ]
+            }
         case .pricing:
             return [
                 PlaybookStep(title: "Frame Scope", detail: "Talk about the right initial scope before defending price."),
@@ -1066,9 +1219,33 @@ final class AppModel: ObservableObject {
     var playbookRiskToAvoid: String {
         switch detectedIntent {
         case .objection:
-            return "Do not argue or over-explain before reducing the perceived risk."
+            switch currentObjectionKind {
+            case .budget:
+                return "Do not defend price before resizing the scope."
+            case .timing:
+                return "Do not answer time pressure with a bigger ask."
+            case .trust:
+                return "Do not push harder before trust is restored."
+            case .complexity:
+                return "Do not make the path sound heavier than it needs to be."
+            case .adoption:
+                return "Do not ignore rollout friction and change management."
+            case .general:
+                return "Do not argue or over-explain before reducing the perceived risk."
+            }
         case .decision:
-            return "Do not end with a vague next step or no owner."
+            switch currentDecisionKind {
+            case .approval:
+                return "Do not ask for broad approval when a smaller commitment would move faster."
+            case .owner:
+                return "Do not leave ownership implied or shared by everyone."
+            case .timeline:
+                return "Do not leave the timeline as a feeling instead of a date."
+            case .pilot:
+                return "Do not pitch the pilot like a full rollout."
+            case .general:
+                return "Do not end with a vague next step or no owner."
+            }
         case .pricing:
             return "Do not defend price in isolation from scope and value."
         case .nextStep:
@@ -1365,8 +1542,9 @@ final class AppModel: ObservableObject {
     func clearManualInterruption() {
         manualInterruptionActive = false
         isPaused = false
-        interruptionState = audioCaptureState == .capturing ? "Listening" : "Idle"
-        overlayState = audioCaptureState == .capturing ? .listening : .idle
+        lastInterruptionClearedAt = Date()
+        interruptionState = audioCaptureState == .capturing ? "Re-entering" : "Idle"
+        overlayState = audioCaptureState == .capturing ? .answerReady : .idle
         refreshTeleprompterState()
         appendLog("Manual interruption cleared")
     }
@@ -1524,6 +1702,9 @@ final class AppModel: ObservableObject {
             self.lastAudioActivityTimestamp = Date()
             let activity = self.voiceActivityDetector.process(level: sample.level)
             self.voiceActivityState = activity.state
+            if activity.state == .speaking {
+                self.lastSpeakingActivityAt = Date()
+            }
 
             if self.audioCaptureState != .capturing {
                 self.audioCaptureState = .ready
@@ -1760,6 +1941,9 @@ final class AppModel: ObservableObject {
 
         if segment.isFinal {
             transcriptSegments.insert(segment, at: 0)
+            if normalizedSpeakerName(segment.speaker) != normalizedSpeakerName(userDisplayName) {
+                lastOtherSpeakerTurnAt = Date()
+            }
             appendTranscriptToActiveSession(segment)
             Task {
                 await handleAutomaticGuidance(for: segment)
@@ -1812,6 +1996,7 @@ final class AppModel: ObservableObject {
 
         isAutoGenerating = true
         overlayState = .questionDetected
+        lastQuestionDetectedAt = Date()
         liveResponseState = "Refreshing from live transcript"
         lastAutoGeneratedTranscriptText = trimmed
         retrievalQuery = trimmed
@@ -1941,6 +2126,47 @@ final class AppModel: ObservableObject {
         }
         if lowered.contains("?") || lowered.contains("how") || lowered.contains("why") || lowered.contains("what") {
             return .clarification
+        }
+
+        return .general
+    }
+
+    private func detectObjectionKind(from text: String) -> ObjectionKind {
+        let lowered = text.lowercased()
+
+        if lowered.contains("budget") || lowered.contains("cost") || lowered.contains("expensive") || lowered.contains("too much") {
+            return .budget
+        }
+        if lowered.contains("later") || lowered.contains("timing") || lowered.contains("quarter") || lowered.contains("right now") || lowered.contains("not now") {
+            return .timing
+        }
+        if lowered.contains("trust") || lowered.contains("security") || lowered.contains("reliable") || lowered.contains("prove") || lowered.contains("worked before") {
+            return .trust
+        }
+        if lowered.contains("complex") || lowered.contains("complicated") || lowered.contains("implementation") || lowered.contains("integrate") {
+            return .complexity
+        }
+        if lowered.contains("team") || lowered.contains("adoption") || lowered.contains("change") || lowered.contains("training") || lowered.contains("use it") {
+            return .adoption
+        }
+
+        return .general
+    }
+
+    private func detectDecisionKind(from text: String) -> DecisionKind {
+        let lowered = text.lowercased()
+
+        if lowered.contains("approve") || lowered.contains("sign off") || lowered.contains("buy in") {
+            return .approval
+        }
+        if lowered.contains("owner") || lowered.contains("who will") || lowered.contains("who owns") || lowered.contains("responsible") {
+            return .owner
+        }
+        if lowered.contains("when") || lowered.contains("timeline") || lowered.contains("date") || lowered.contains("this month") || lowered.contains("this quarter") {
+            return .timeline
+        }
+        if lowered.contains("pilot") || lowered.contains("trial") || lowered.contains("start small") || lowered.contains("test this") {
+            return .pilot
         }
 
         return .general
@@ -2159,24 +2385,102 @@ final class AppModel: ObservableObject {
             let base = sentence.isEmpty
                 ? "That concern makes sense. The safest path is to reduce risk with one focused step first."
                 : sentence
-            if interrupted || lowConfidence {
-                return "That concern makes sense. The safest next step is to keep the scope small and reduce risk first."
+            switch currentObjectionKind {
+            case .budget:
+                if interrupted || lowConfidence {
+                    return "That makes sense. We can start smaller, prove value fast, and expand only if it earns the spend."
+                }
+                return ensureTwoSentenceShape(
+                    primary: base,
+                    followUp: "We can reduce the starting scope, prove the outcome quickly, and only expand once the value is clear."
+                )
+            case .timing:
+                if interrupted || lowConfidence {
+                    return "That timing concern makes sense. The safest move is one smaller next step that fits the current window."
+                }
+                return ensureTwoSentenceShape(
+                    primary: base,
+                    followUp: "We can keep momentum with one small step now instead of forcing the full rollout immediately."
+                )
+            case .trust:
+                if interrupted || lowConfidence {
+                    return "That concern makes sense. The safest move is to validate with one proof point or a low-risk next step first."
+                }
+                return ensureTwoSentenceShape(
+                    primary: base,
+                    followUp: "We can de-risk this with one concrete proof point and a reversible next step before asking for more."
+                )
+            case .complexity:
+                if interrupted || lowConfidence {
+                    return "That makes sense. The best next step is to keep the path simple and start with the least disruptive move."
+                }
+                return ensureTwoSentenceShape(
+                    primary: base,
+                    followUp: "We can simplify the first step, avoid extra change, and prove the workflow before expanding."
+                )
+            case .adoption:
+                if interrupted || lowConfidence {
+                    return "That is fair. The safest move is to start with a small group and make adoption easy before scaling."
+                }
+                return ensureTwoSentenceShape(
+                    primary: base,
+                    followUp: "We can begin with a small team, support adoption closely, and expand only once usage becomes easy."
+                )
+            case .general:
+                if interrupted || lowConfidence {
+                    return "That concern makes sense. The safest next step is to keep the scope small and reduce risk first."
+                }
+                return ensureTwoSentenceShape(
+                    primary: base,
+                    followUp: "We can keep the scope small, prove value quickly, and expand only after it works."
+                )
             }
-            return ensureTwoSentenceShape(
-                primary: base,
-                followUp: "We can keep the scope small, prove value quickly, and expand only after it works."
-            )
         case .decision:
             let base = sentence.isEmpty
                 ? "The best next move is to make the next commitment small and clear."
                 : sentence
-            if interrupted || lowConfidence {
-                return "The best next move is to make the next step small, clear, and easy to own now."
+            switch currentDecisionKind {
+            case .approval:
+                if interrupted || lowConfidence {
+                    return "The best next move is to ask for one small approval that moves this forward now."
+                }
+                return ensureTwoSentenceShape(
+                    primary: base,
+                    followUp: "If this makes sense, we should define the exact approval needed and make that decision easy to say yes to."
+                )
+            case .owner:
+                if interrupted || lowConfidence {
+                    return "The next move is to name one owner and one action so this does not stay vague."
+                }
+                return ensureTwoSentenceShape(
+                    primary: base,
+                    followUp: "If this direction is right, the next step is to lock one owner, one action, and one date now."
+                )
+            case .timeline:
+                if interrupted || lowConfidence {
+                    return "The next move is to agree on one concrete date and the smallest step needed to protect it."
+                }
+                return ensureTwoSentenceShape(
+                    primary: base,
+                    followUp: "If this is moving forward, we should anchor the next date now and back into the smallest step required."
+                )
+            case .pilot:
+                if interrupted || lowConfidence {
+                    return "The best next move is to frame this as a small pilot with a clear owner and success goal."
+                }
+                return ensureTwoSentenceShape(
+                    primary: base,
+                    followUp: "If this makes sense, the next step is to lock a focused pilot with an owner, timing, and success signal."
+                )
+            case .general:
+                if interrupted || lowConfidence {
+                    return "The best next move is to make the next step small, clear, and easy to own now."
+                }
+                return ensureTwoSentenceShape(
+                    primary: base,
+                    followUp: "If this direction makes sense, the next step is to lock the owner and timing now."
+                )
             }
-            return ensureTwoSentenceShape(
-                primary: base,
-                followUp: "If this direction makes sense, the next step is to lock the owner and timing now."
-            )
         case .pricing:
             let base = sentence.isEmpty
                 ? "The right way to think about price is through the starting scope and the value we need to prove first."
@@ -2516,21 +2820,51 @@ final class AppModel: ObservableObject {
     }
 
     private func syncOverlayStateFromLiveSignals() {
+        let now = Date()
+
         if manualInterruptionActive || isPaused {
             overlayState = .paused
+            return
+        }
+
+        if let clearedAt = lastInterruptionClearedAt,
+           now.timeIntervalSince(clearedAt) < 1.4,
+           audioCaptureState == .capturing {
+            overlayState = overlayContent.nowSay.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .listening : .answerReady
+            interruptionState = "Re-entering"
             return
         }
 
         if teleprompterProgress >= 0.75 && voiceActivityState == .silent {
             overlayState = .postAnswer
             if lastAnswerCompletionAt == nil {
-                lastAnswerCompletionAt = Date()
+                lastAnswerCompletionAt = now
             }
             return
         }
 
+        if let completedAt = lastAnswerCompletionAt,
+           now.timeIntervalSince(completedAt) < 1.5,
+           voiceActivityState == .silent {
+            overlayState = .postAnswer
+            interruptionState = "Answer landed"
+            return
+        } else if let completedAt = lastAnswerCompletionAt,
+                  now.timeIntervalSince(completedAt) >= 1.5 {
+            lastAnswerCompletionAt = nil
+        }
+
         if teleprompterProgress > 0.08 && voiceActivityState == .speaking {
             overlayState = .speaking
+            interruptionState = "Following your answer"
+            return
+        }
+
+        if let speakingAt = lastSpeakingActivityAt,
+           now.timeIntervalSince(speakingAt) < 0.7,
+           teleprompterProgress > 0.08 {
+            overlayState = .speaking
+            interruptionState = "Holding your answer"
             return
         }
 
@@ -2538,12 +2872,31 @@ final class AppModel: ObservableObject {
             return
         }
 
-        if !overlayContent.nowSay.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           transcriptSegments.contains(where: { normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName) }) {
-            overlayState = .answerReady
+        if let detectedAt = lastQuestionDetectedAt,
+           now.timeIntervalSince(detectedAt) < 0.9,
+           voiceActivityState == .silent {
+            overlayState = .questionDetected
+            interruptionState = "Reading the question"
             return
         }
 
+        if let otherTurnAt = lastOtherSpeakerTurnAt,
+           now.timeIntervalSince(otherTurnAt) < 1.1,
+           voiceActivityState == .silent,
+           teleprompterProgress < 0.08 {
+            overlayState = .questionDetected
+            interruptionState = "Fresh question"
+            return
+        }
+
+        if !overlayContent.nowSay.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           transcriptSegments.contains(where: { normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName) }) {
+            overlayState = .answerReady
+            interruptionState = "Ready to answer"
+            return
+        }
+
+        interruptionState = audioCaptureState == .capturing ? "Listening" : "Idle"
         overlayState = audioCaptureState == .capturing ? .listening : .idle
     }
 

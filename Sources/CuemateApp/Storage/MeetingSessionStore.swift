@@ -55,4 +55,36 @@ struct MeetingSessionStore: Sendable {
         sessions[index].followUpArtifact = result.followUpArtifact
         try saveSessions(sessions)
     }
+
+    // MARK: - Session lifecycle
+
+    /// Loads a single session by ID. Returns nil if not found.
+    func loadSession(id: UUID) throws -> MeetingSessionRecord? {
+        try loadSessions().first { $0.id == id }
+    }
+
+    /// Appends a new session record to the store.
+    func createSession(_ session: MeetingSessionRecord) throws {
+        var sessions = try loadSessions()
+        sessions.append(session)
+        try saveSessions(sessions)
+    }
+
+    /// Sets `endedAt` on the session with the given ID.
+    /// No-ops silently if the session ID is not found.
+    func endSession(id: UUID, at date: Date = Date()) throws {
+        var sessions = try loadSessions()
+        guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
+        sessions[index].endedAt = date
+        try saveSessions(sessions)
+    }
+
+    /// Updates the title on an existing session record.
+    /// No-ops silently if the session ID is not found.
+    func updateTitle(_ title: String, forSessionID id: UUID) throws {
+        var sessions = try loadSessions()
+        guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
+        sessions[index].title = title
+        try saveSessions(sessions)
+    }
 }

@@ -71,12 +71,17 @@ struct OllamaBriefService: Sendable {
         let raw = try JSONDecoder().decode(OllamaBriefAPIResponse.self, from: data)
         guard
             let payloadData = raw.response.data(using: .utf8),
-            let payload = try? JSONDecoder().decode(OllamaBriefPayload.self, from: payloadData)
+            let payload = try? JSONDecoder().decode(BriefAIPayload.self, from: payloadData)
         else {
             throw OllamaBriefError.invalidResponse
         }
 
-        return assembleBrief(from: payload, input: input)
+        return MeetingBriefBuilder().assembleBrief(
+            from: payload,
+            meetingType: input.configuration.meetingType,
+            documentHighlights: input.documentHighlights,
+            priorSessionNote: input.priorSessionNote
+        )
     }
 
     // MARK: - Prompt
@@ -120,49 +125,6 @@ struct OllamaBriefService: Sendable {
         return parts.joined(separator: "\n")
     }
 
-    // MARK: - Assembly
-
-    private func assembleBrief(
-        from payload: OllamaBriefPayload,
-        input: OllamaBriefGenerationRequest
-    ) -> MeetingBrief {
-        MeetingBrief(
-            meetingType: input.configuration.meetingType,
-            meetingGoal: payload.meetingGoal.isEmpty
-                ? fallbackGoal(for: input.configuration.meetingType)
-                : payload.meetingGoal,
-            focusAreas: payload.focusAreas.isEmpty
-                ? modeHelper.summaryFocusAreas(for: input.configuration.meetingType)
-                : payload.focusAreas,
-            likelyRisks: payload.likelyRisks.isEmpty
-                ? fallbackRisks(for: input.configuration.meetingType)
-                : payload.likelyRisks,
-            suggestedNextStep: payload.suggestedNextStep,
-            openingFraming: payload.openingFraming,
-            // Heuristic document highlights are passed through — LLM doesn't produce them
-            documentHighlights: input.documentHighlights,
-            priorSessionNote: payload.priorSessionNote.isEmpty ? input.priorSessionNote : payload.priorSessionNote,
-            generatedAt: Date()
-        )
-    }
-
-    // MARK: - Fallbacks (used if LLM returns empty fields)
-
-    private func fallbackGoal(for meetingType: String) -> String {
-        modeHelper.coachingObjective(for: meetingType)
-    }
-
-    private func fallbackRisks(for meetingType: String) -> [String] {
-        switch meetingType {
-        case "sales":         return ["Budget or procurement gating.", "Decision-maker absent.", "Timeline misalignment."]
-        case "demo":          return ["Workflow mismatch.", "Integration objection.", "Unprepared use case."]
-        case "client-review": return ["Invisible progress.", "Undiscussed risk.", "Scope drift."]
-        case "interview":     return ["Unprepared example.", "Narrower requirements.", "Experience gap."]
-        case "internal-sync": return ["Stalled decision.", "Unclear ownership.", "External dependencies."]
-        default:              return ["Goal drift.", "Decision not reached."]
-        }
-    }
-
     // MARK: - JSON schema
 
     private var briefJSONSchema: OllamaBriefSchema {
@@ -195,15 +157,6 @@ private struct OllamaBriefAPIRequest: Codable {
 
 private struct OllamaBriefAPIResponse: Codable {
     let response: String
-}
-
-private struct OllamaBriefPayload: Codable {
-    let meetingGoal: String
-    let focusAreas: [String]
-    let likelyRisks: [String]
-    let suggestedNextStep: String
-    let openingFraming: String
-    let priorSessionNote: String
 }
 
 private struct OllamaBriefSchema: Codable {

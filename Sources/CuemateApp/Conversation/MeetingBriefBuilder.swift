@@ -338,6 +338,57 @@ struct MeetingBriefBuilder: Sendable {
     }
 }
 
+// MARK: - Shared AI payload
+
+/// Common JSON payload shape returned by both Ollama and OpenAI brief services.
+/// Both services decode this from the LLM response before assembly.
+struct BriefAIPayload: Codable, Sendable {
+    var meetingGoal: String
+    var focusAreas: [String]
+    var likelyRisks: [String]
+    var suggestedNextStep: String
+    var openingFraming: String
+    var priorSessionNote: String
+}
+
+// MARK: - AI payload assembly
+
+extension MeetingBriefBuilder {
+    /// Assembles a `MeetingBrief` from a parsed AI payload.
+    /// Merges the pre-computed heuristic document highlights and fills any empty
+    /// LLM fields from the built-in mode-specific fallbacks.
+    func assembleBrief(
+        from payload: BriefAIPayload,
+        meetingType: String,
+        documentHighlights: [MeetingBrief.DocumentHighlight],
+        priorSessionNote: String?
+    ) -> MeetingBrief {
+        MeetingBrief(
+            meetingType: meetingType,
+            meetingGoal: payload.meetingGoal.isEmpty
+                ? buildMeetingGoal(for: meetingType)
+                : payload.meetingGoal,
+            focusAreas: payload.focusAreas.isEmpty
+                ? modeHelper.summaryFocusAreas(for: meetingType)
+                : payload.focusAreas,
+            likelyRisks: payload.likelyRisks.isEmpty
+                ? buildLikelyRisks(for: meetingType)
+                : payload.likelyRisks,
+            suggestedNextStep: payload.suggestedNextStep.isEmpty
+                ? buildSuggestedNextStep(for: meetingType)
+                : payload.suggestedNextStep,
+            openingFraming: payload.openingFraming.isEmpty
+                ? buildOpeningFraming(for: meetingType)
+                : payload.openingFraming,
+            documentHighlights: documentHighlights,
+            priorSessionNote: payload.priorSessionNote.isEmpty
+                ? priorSessionNote
+                : payload.priorSessionNote,
+            generatedAt: Date()
+        )
+    }
+}
+
 // MARK: - BriefInput convenience factory
 
 extension MeetingBriefBuilder.BriefInput {
