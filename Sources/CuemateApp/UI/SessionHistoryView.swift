@@ -131,6 +131,7 @@ struct SessionHistoryDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 headerSection
+                diagnosticsSection
 
                 if let summary = session.summary {
                     overviewSection(summary)
@@ -162,6 +163,22 @@ struct SessionHistoryDetailView: View {
                 }
             }
             .padding(20)
+        }
+    }
+
+    private var diagnosticsSection: some View {
+        BriefSectionBox(title: "Session Diagnostics") {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(session.diagnostics.displayItems, id: \.self) { item in
+                    HStack(alignment: .top, spacing: 6) {
+                        Text("·")
+                            .foregroundStyle(.secondary)
+                        Text(item)
+                            .font(.callout)
+                            .monospacedDigit()
+                    }
+                }
+            }
         }
     }
 

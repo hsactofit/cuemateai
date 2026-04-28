@@ -16,6 +16,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "CuemateApp"
+        ),
+        .testTarget(
+            name: "CuemateAppTests",
+            dependencies: ["CuemateApp"]
         )
     ]
 )

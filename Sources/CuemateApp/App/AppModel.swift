@@ -255,11 +255,31 @@ struct PlaybookStep: Identifiable, Sendable, Equatable {
     let detail: String
 }
 
-struct SessionDiagnostics: Sendable, Equatable {
+struct SessionDiagnostics: Codable, Sendable, Equatable {
     var recoveryEvents = 0
     var lowConfidenceEvents = 0
     var interruptionEvents = 0
     var providerFallbackEvents = 0
+
+    var totalEvents: Int {
+        recoveryEvents + lowConfidenceEvents + interruptionEvents + providerFallbackEvents
+    }
+
+    var displayItems: [String] {
+        [
+            "Recoveries: \(recoveryEvents)",
+            "Low-confidence answers: \(lowConfidenceEvents)",
+            "Interruptions: \(interruptionEvents)",
+            "Provider fallbacks: \(providerFallbackEvents)"
+        ]
+    }
+}
+
+private enum SessionDiagnosticEvent {
+    case recovery
+    case lowConfidence
+    case interruption
+    case providerFallback
 }
 
 enum ConversationAction: String, CaseIterable, Identifiable {
@@ -800,6 +820,7 @@ final class AppModel: ObservableObject {
         guidanceConfidence = .low
         conversationModeLabel = "Buy-time fallback"
         liveResponseState = "Safe fallback ready"
+        recordSessionDiagnostics([.recovery, .lowConfidence])
         appendLog("Generated a buy-time fallback answer")
     }
 
@@ -1597,6 +1618,10 @@ final class AppModel: ObservableObject {
         return Array(items.prefix(3))
     }
 
+    var sessionDiagnosticsItems: [String] {
+        sessionDiagnostics.displayItems
+    }
+
     var privacyExecutionSummary: String {
         switch generationProvider {
         case .localHeuristic:
@@ -1707,6 +1732,7 @@ final class AppModel: ObservableObject {
             guard let apiKey = ((try? keychainStore.load(account: "openai_api_key")) ?? nil), !apiKey.isEmpty else {
                 providerStatusMessage = "OpenAI key missing, using local heuristic guidance"
                 response = conversationEngine.generate(request: request)
+                recordSessionDiagnostic(.providerFallback)
                 streamingResponsePreview = response.primary
                 break
             }
@@ -1720,6 +1746,7 @@ final class AppModel: ObservableObject {
                 providerStatusMessage = "OpenAI failed, using local heuristic guidance"
                 appendLog("OpenAI generation failed: \(error.localizedDescription)")
                 response = conversationEngine.generate(request: request)
+                recordSessionDiagnostic(.providerFallback)
                 streamingResponsePreview = response.primary
             }
         case .ollama:
@@ -1740,6 +1767,7 @@ final class AppModel: ObservableObject {
                 providerStatusMessage = "Ollama failed, using local heuristic guidance"
                 appendLog("Ollama generation failed: \(error.localizedDescription)")
                 response = conversationEngine.generate(request: request)
+                recordSessionDiagnostic(.providerFallback)
                 streamingResponsePreview = response.primary
             }
         }
@@ -1756,6 +1784,9 @@ final class AppModel: ObservableObject {
             next: shapedNextStep(from: response.next, intent: intent)
         )
         guidanceConfidence = confidence
+        if confidence == .low {
+            recordSessionDiagnostic(.lowConfidence)
+        }
         overlayState = .answerReady
         recordGuidanceSnapshot(
             provider: response.modeLabel,
@@ -1817,6 +1848,7 @@ final class AppModel: ObservableObject {
         isPaused = true
         interruptionState = "Manual interruption"
         overlayState = .paused
+        recordSessionDiagnostic(.interruption)
         refreshTeleprompterState()
         appendLog("Manual interruption triggered")
     }
@@ -1934,6 +1966,7 @@ final class AppModel: ObservableObject {
 
         selectedSessionID = session.id
         selectedSection = .live
+        sessionDiagnostics = SessionDiagnostics()
         appendLog("Started meeting session \(title)")
 
         Task {
@@ -1945,6 +1978,7 @@ final class AppModel: ObservableObject {
         guard let index = meetingSessions.firstIndex(where: \.isActive) else { return }
         let sessionID = meetingSessions[index].id
         let endedAt = Date()
+        meetingSessions[index].diagnostics = sessionDiagnostics
         let result = postMeetingSummaryService.generateResult(
             for: meetingSessions[index],
             documents: importedDocuments
@@ -1955,7 +1989,7 @@ final class AppModel: ObservableObject {
         meetingSessions[index].followUpArtifact = result.followUpArtifact
 
         do {
-            try meetingSessionStore.saveSummaryResult(result, forSessionID: sessionID)
+            try meetingSessionStore.saveSummaryResult(result, diagnostics: sessionDiagnostics, forSessionID: sessionID)
             try meetingSessionStore.endSession(id: sessionID, at: endedAt)
             loadMeetingSessions()
         } catch {
@@ -2185,6 +2219,7 @@ final class AppModel: ObservableObject {
             if selectedSessionID == nil {
                 selectedSessionID = meetingSessions.first?.id
             }
+            sessionDiagnostics = meetingSessions.first(where: \.isActive)?.diagnostics ?? SessionDiagnostics()
         } catch {
             appendLog("Using empty meeting session history")
         }
@@ -2198,6 +2233,31 @@ final class AppModel: ObservableObject {
             appendLog("Failed to save meeting sessions: \(error.localizedDescription)")
         }
         refreshHistoryState()
+    }
+
+    private func recordSessionDiagnostic(_ event: SessionDiagnosticEvent) {
+        recordSessionDiagnostics([event])
+    }
+
+    private func recordSessionDiagnostics(_ events: [SessionDiagnosticEvent]) {
+        guard !events.isEmpty else { return }
+
+        for event in events {
+            switch event {
+            case .recovery:
+                sessionDiagnostics.recoveryEvents += 1
+            case .lowConfidence:
+                sessionDiagnostics.lowConfidenceEvents += 1
+            case .interruption:
+                sessionDiagnostics.interruptionEvents += 1
+            case .providerFallback:
+                sessionDiagnostics.providerFallbackEvents += 1
+            }
+        }
+
+        guard let index = meetingSessions.firstIndex(where: \.isActive) else { return }
+        meetingSessions[index].diagnostics = sessionDiagnostics
+        saveMeetingSessions()
     }
 
     private func loadSecrets() {
@@ -3060,6 +3120,7 @@ final class AppModel: ObservableObject {
         )
         overlayState = .recovery
         guidanceConfidence = .low
+        recordSessionDiagnostics([.recovery, .lowConfidence])
         conversationModeLabel = "Recovery mode"
         liveResponseState = "Recovery answer ready"
         providerStatusMessage = "Using recovery fallback"

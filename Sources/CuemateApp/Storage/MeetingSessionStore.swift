@@ -60,11 +60,12 @@ struct MeetingSessionStore: Sendable {
 
     /// Persists a summary result (both `MeetingSummary` and `StoredFollowUpArtifact`) in one write.
     /// Avoids two separate load-modify-save cycles when both fields need updating together.
-    func saveSummaryResult(_ result: SummaryResult, forSessionID id: UUID) throws {
+    func saveSummaryResult(_ result: SummaryResult, diagnostics: SessionDiagnostics, forSessionID id: UUID) throws {
         var sessions = try loadSessions()
         guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
         sessions[index].summary = result.summary
         sessions[index].followUpArtifact = result.followUpArtifact
+        sessions[index].diagnostics = diagnostics
         try saveSessions(sessions)
     }
 

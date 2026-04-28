@@ -26,6 +26,7 @@ struct MeetingSessionRecord: Identifiable, Codable, Sendable, Equatable {
     var transcriptSegments: [TranscriptSegment]
     var guidanceHistory: [GuidanceSnapshot]
     var documentIDs: [UUID]
+    var diagnostics: SessionDiagnostics
     var summary: MeetingSummary?
     var followUpNotes: String
     /// Pre-meeting brief generated before the session starts.
@@ -49,6 +50,7 @@ struct MeetingSessionRecord: Identifiable, Codable, Sendable, Equatable {
         transcriptSegments: [TranscriptSegment],
         guidanceHistory: [GuidanceSnapshot],
         documentIDs: [UUID],
+        diagnostics: SessionDiagnostics,
         summary: MeetingSummary?,
         followUpNotes: String,
         brief: MeetingBrief?,
@@ -62,6 +64,7 @@ struct MeetingSessionRecord: Identifiable, Codable, Sendable, Equatable {
         self.transcriptSegments = transcriptSegments
         self.guidanceHistory = guidanceHistory
         self.documentIDs = documentIDs
+        self.diagnostics = diagnostics
         self.summary = summary
         self.followUpNotes = followUpNotes
         self.brief = brief
@@ -80,6 +83,7 @@ struct MeetingSessionRecord: Identifiable, Codable, Sendable, Equatable {
         transcriptSegments = try c.decode([TranscriptSegment].self, forKey: .transcriptSegments)
         guidanceHistory = (try? c.decode([GuidanceSnapshot].self, forKey: .guidanceHistory)) ?? []
         documentIDs = (try? c.decode([UUID].self, forKey: .documentIDs)) ?? []
+        diagnostics = (try? c.decode(SessionDiagnostics.self, forKey: .diagnostics)) ?? SessionDiagnostics()
         summary = try? c.decodeIfPresent(MeetingSummary.self, forKey: .summary) ?? nil
         followUpNotes = (try? c.decode(String.self, forKey: .followUpNotes)) ?? ""
         brief = try? c.decodeIfPresent(MeetingBrief.self, forKey: .brief) ?? nil
@@ -110,6 +114,7 @@ extension MeetingSessionRecord {
             transcriptSegments: [],
             guidanceHistory: [],
             documentIDs: documentIDs,
+            diagnostics: SessionDiagnostics(),
             summary: nil,
             followUpNotes: "",
             brief: nil,

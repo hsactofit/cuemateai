@@ -99,6 +99,7 @@ struct StartSessionWorkspaceView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     transcriptCard
                     coachingCard
+                    diagnosticsCard
                     riskFlagsCard
                     playbookCard
                     activityStatusCard
@@ -520,6 +521,19 @@ struct StartSessionWorkspaceView: View {
                     ForEach(model.liveRiskFlags, id: \.self) { flag in
                         BulletLine(text: flag)
                     }
+                }
+            }
+        }
+    }
+
+    private var diagnosticsCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Session Diagnostics")
+                    .font(.title3.weight(.semibold))
+
+                ForEach(model.sessionDiagnosticsItems, id: \.self) { item in
+                    BulletLine(text: item)
                 }
             }
         }
