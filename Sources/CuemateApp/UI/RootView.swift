@@ -31,44 +31,49 @@ struct RootView: View {
 
     private var topBar: some View {
         HStack(alignment: .center, spacing: 18) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text("Cuemate")
                     .font(.system(size: 28, weight: .semibold, design: .rounded))
                 Text("Clean live help for meetings, demos, and client calls.")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
 
             Spacer()
 
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 navPill(for: .live, icon: "play.circle.fill")
                 navPill(for: .review, icon: "clock.arrow.circlepath")
                 navPill(for: .setup, icon: "gearshape.fill")
             }
         }
         .padding(.horizontal, 24)
-        .padding(.vertical, 18)
+        .padding(.vertical, 16)
     }
 
     private func navPill(for section: AppModel.WorkspaceSection, icon: String) -> some View {
-        Button {
+        let isActive = model.selectedSection == section
+        return Button {
             model.selectedSection = section
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: 7) {
                 Image(systemName: icon)
+                    .font(.caption.weight(.semibold))
                 Text(section.title)
-                    .fontWeight(.semibold)
+                    .font(.subheadline.weight(.semibold))
+                    .fontDesign(.rounded)
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.vertical, 9)
             .background(
                 Capsule(style: .continuous)
-                    .fill(model.selectedSection == section ? Color.accentColor.opacity(0.16) : Color(nsColor: .controlBackgroundColor))
+                    .fill(isActive ? Color.accentColor.opacity(0.14) : Color(nsColor: .controlBackgroundColor))
             )
             .overlay(
                 Capsule(style: .continuous)
-                    .stroke(model.selectedSection == section ? Color.accentColor.opacity(0.4) : Color.black.opacity(0.06), lineWidth: 1)
+                    .stroke(isActive ? Color.accentColor.opacity(0.35) : Color.black.opacity(0.05), lineWidth: 1)
             )
+            .foregroundStyle(isActive ? Color.accentColor : Color.primary)
         }
         .buttonStyle(.plain)
     }
@@ -377,15 +382,17 @@ struct StartSessionWorkspaceView: View {
         Button(action: action) {
             Text(title)
                 .font(.caption.weight(.semibold))
-                .padding(.horizontal, 10)
+                .fontDesign(.rounded)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 8)
+                .foregroundStyle(active ? Color.accentColor : Color.primary.opacity(0.7))
                 .background(
                     Capsule(style: .continuous)
-                        .fill(active ? Color.accentColor.opacity(0.18) : Color(nsColor: .controlBackgroundColor))
+                        .fill(active ? Color.accentColor.opacity(0.14) : Color(nsColor: .controlBackgroundColor))
                 )
                 .overlay(
                     Capsule(style: .continuous)
-                        .stroke(active ? Color.accentColor.opacity(0.4) : Color.black.opacity(0.06), lineWidth: 1)
+                        .stroke(active ? Color.accentColor.opacity(0.35) : Color.black.opacity(0.05), lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
@@ -1407,29 +1414,35 @@ struct WorkspaceHeroCard: View {
     let subtitle: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(eyebrow.uppercased())
-                .font(.caption.weight(.bold))
-                .foregroundStyle(Color.orange)
+                .font(.caption2.weight(.bold))
+                .tracking(1.2)
+                .foregroundStyle(Color.accentColor.opacity(0.7))
             Text(title)
-                .font(.system(size: 30, weight: .semibold, design: .rounded))
+                .font(.system(size: 28, weight: .semibold, design: .rounded))
             Text(subtitle)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(22)
+        .padding(24)
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(red: 0.98, green: 0.95, blue: 0.90),
-                            Color(red: 0.92, green: 0.96, blue: 0.98)
+                            Color(nsColor: .underPageBackgroundColor),
+                            Color(nsColor: .windowBackgroundColor)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.black.opacity(0.04), lineWidth: 1)
         )
     }
 }
@@ -1439,14 +1452,14 @@ struct SurfaceCard<Content: View>: View {
 
     var body: some View {
         content
-            .padding(18)
+            .padding(20)
             .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(Color(nsColor: .underPageBackgroundColor))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.black.opacity(0.04), lineWidth: 1)
             )
     }
 }
@@ -1459,21 +1472,24 @@ struct ActionButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 8) {
+            HStack(spacing: 7) {
                 Image(systemName: systemImage)
+                    .font(.subheadline.weight(.semibold))
                 Text(title)
-                    .fontWeight(.semibold)
+                    .font(.subheadline.weight(.semibold))
+                    .fontDesign(.rounded)
             }
             .frame(maxWidth: .infinity)
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 14)
             .padding(.vertical, 11)
+            .foregroundStyle(tint)
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(tint.opacity(0.12))
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(tint.opacity(0.1))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(tint.opacity(0.25), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(tint.opacity(0.22), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -1485,17 +1501,19 @@ struct CompactMetric: View {
     let value: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title.uppercased())
+                .font(.caption2.weight(.semibold))
+                .tracking(0.6)
+                .foregroundStyle(.tertiary)
             Text(value)
-                .font(.headline)
+                .font(.title3.weight(.semibold))
+                .fontDesign(.rounded)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
+        .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color(nsColor: .controlBackgroundColor))
@@ -1539,13 +1557,17 @@ struct DetailBlock: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
+            Text(title.uppercased())
+                .font(.caption2.weight(.bold))
+                .tracking(0.8)
+                .foregroundStyle(.tertiary)
             Text(text)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color(nsColor: .controlBackgroundColor))
