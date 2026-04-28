@@ -1,16 +1,9 @@
 # In Progress
 
-- Phase 1 trust refinement:
-  Core trust foundations are in place. What remains is live validation, edge-case tuning, and stability polish.
-- Phase 2 product-fit foundation:
-  Phase 2 and launch hygiene are effectively complete.
-  What is left here is not implementation-heavy:
-  run the real-meeting beta validation pack and fix anything it surfaces.
-- Phase 3 live intelligence foundation:
-  The live product is feature-rich enough for serious beta.
-  What is next:
-  deeper cross-session memory, better learning of user style over time, and real-meeting tuning of confidence/speaker/interruption behavior using the new diagnostics and watchouts.
+- All P1/P2/P3 backlog items are complete.
+- The backlog now only contains P4 future-differentiation work and CM-BLG-093 (memory controls).
 
 ## Next Focus
 
-- **Run real-meeting validation**: all P1/P2/P3 items are now built. Run `.ai-system/testing/manual-beta-plan.md` and `.ai-system/testing/live-meeting-checklist.md` against the full prompt stack.
+- **Run real-meeting validation**: run `.ai-system/testing/manual-beta-plan.md` and `.ai-system/testing/live-meeting-checklist.md` against the full prompt stack. Fix anything surfaced.
+- `CM-BLG-093` Memory controls and privacy: let users inspect, edit, and delete stored cross-session memory. Show which sessions contributed to the current memory note.

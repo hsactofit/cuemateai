@@ -1,5 +1,10 @@
 # Completed
 
+## 2026-04-28 (relationship timeline, backlog cleanup)
+
+- `CM-BLG-002` Public repo cleanup: removed tracked `.DS_Store` (already in `.gitignore`); README and product.html were already aligned in earlier pass.
+- `CM-BLG-092` Relationship timeline: `RelationshipTimelineBuilder` groups completed sessions by participant name + company, ranks recurring topics by frequency, surfaces last outcome and all-time outcome breakdown. `SessionHistoryView` gains a "People" tab with `RelationshipRowView` list and `RelationshipDetailView` (contact header, topics, outcome breakdown, per-session drill-down). 9 new tests, 39 total passing.
+
 ## 2026-04-28 (session auto-start, overlay enhancements, visual polish)
 
 - `CM-BLG-052` Session auto-start suggestions: `checkAutoStartCondition()` fires when audio is capturing and 2+ other-speaker segments arrive with no active session; `showAutoStartSuggestion` published bool drives a dismissible `autoStartSuggestionCard` in `StartSessionWorkspaceView`; cleared on session start or explicit dismiss.
