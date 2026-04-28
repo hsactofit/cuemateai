@@ -584,6 +584,12 @@ final class AppModel: ObservableObject {
     @Published var offlineModeEnabled = false {
         didSet { persistState() }
     }
+    @Published var screenContextEnabled = false {
+        didSet { persistState() }
+    }
+    @Published var screenPermissionGranted = false
+    @Published var screenContextText = ""
+    @Published var screenContextCapturedAt: Date? = nil
     @Published var importedDocuments: [IngestedDocument] = []
     @Published var lastImportedChunkCount = 0
     @Published var retrievalQuery = ""
@@ -637,6 +643,7 @@ final class AppModel: ObservableObject {
     private let audioCaptureService: AudioCaptureService
     private let speechTranscriptionService: SpeechTranscriptionService
     private let whisperCppTranscriptionService: WhisperCppTranscriptionService
+    private let screenContextService: ScreenContextService
     private let conversationEngine: ConversationEngine
     private let postMeetingSummaryService: PostMeetingSummaryService
     private let voiceActivityDetector: VoiceActivityDetector
@@ -665,6 +672,7 @@ final class AppModel: ObservableObject {
         audioCaptureService: AudioCaptureService = AudioCaptureService(),
         speechTranscriptionService: SpeechTranscriptionService = SpeechTranscriptionService(),
         whisperCppTranscriptionService: WhisperCppTranscriptionService? = nil,
+        screenContextService: ScreenContextService = ScreenContextService(),
         conversationEngine: ConversationEngine = ConversationEngine(),
         postMeetingSummaryService: PostMeetingSummaryService = PostMeetingSummaryService(),
         voiceActivityDetector: VoiceActivityDetector = VoiceActivityDetector(),
@@ -682,6 +690,7 @@ final class AppModel: ObservableObject {
         self.audioCaptureService = audioCaptureService
         self.speechTranscriptionService = speechTranscriptionService
         self.whisperCppTranscriptionService = whisperCppTranscriptionService ?? WhisperCppTranscriptionService(appPaths: appPaths)
+        self.screenContextService = screenContextService
         self.conversationEngine = conversationEngine
         self.postMeetingSummaryService = postMeetingSummaryService
         self.voiceActivityDetector = voiceActivityDetector
@@ -704,6 +713,7 @@ final class AppModel: ObservableObject {
         loadMeetingSessions()
         configureAudioCallbacks()
         configureTranscriptionCallbacks()
+        checkScreenPermission()
     }
 
     func bootstrapStorage() {
@@ -1738,6 +1748,31 @@ final class AppModel: ObservableObject {
         whisperCppTranscriptionService.setLanguage(lang.whisperCode)
     }
 
+    // MARK: - Screen context
+
+    func checkScreenPermission() {
+        screenPermissionGranted = screenContextService.hasPermission()
+    }
+
+    func requestScreenPermission() {
+        screenContextService.requestPermission()
+        // Re-check after a short delay to pick up the result of the dialog.
+        Task {
+            try? await Task.sleep(for: .seconds(1))
+            screenPermissionGranted = screenContextService.hasPermission()
+        }
+    }
+
+    func refreshScreenContext() async {
+        guard screenContextEnabled else { return }
+        let text = await screenContextService.captureAndExtractText()
+        screenContextText = text
+        screenContextCapturedAt = screenContextService.lastCaptureAt
+        if !text.isEmpty {
+            appendLog("Screen context refreshed: \(text.count) characters captured")
+        }
+    }
+
     var privacyExecutionSummary: String {
         switch generationProvider {
         case .localHeuristic:
@@ -2307,6 +2342,7 @@ final class AppModel: ObservableObject {
             memoryEnabled = state.memoryEnabled
             excludedFromMemoryIDs = Set(state.excludedFromMemoryIDs.compactMap(UUID.init))
             offlineModeEnabled = state.offlineModeEnabled
+            screenContextEnabled = state.screenContextEnabled
             appendLog("Loaded saved local configuration")
         } catch {
             appendLog("Using default local configuration")
@@ -2330,7 +2366,8 @@ final class AppModel: ObservableObject {
             autoResponseEnabled: autoResponseEnabled,
             memoryEnabled: memoryEnabled,
             excludedFromMemoryIDs: excludedFromMemoryIDs.map(\.uuidString),
-            offlineModeEnabled: offlineModeEnabled
+            offlineModeEnabled: offlineModeEnabled,
+            screenContextEnabled: screenContextEnabled
         )
 
         do {
@@ -2827,7 +2864,8 @@ final class AppModel: ObservableObject {
             latestQuestion: latestQ,
             detectedIntent: intent.rawValue,
             crossSessionMemory: memoryText,
-            meetingLanguage: configuration.meetingLanguage
+            meetingLanguage: configuration.meetingLanguage,
+            screenContext: screenContextEnabled ? screenContextText : ""
         )
     }
 

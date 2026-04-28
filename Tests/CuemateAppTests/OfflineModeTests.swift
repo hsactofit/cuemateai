@@ -87,7 +87,8 @@ final class OfflineModeTests: XCTestCase {
             autoResponseEnabled: true,
             memoryEnabled: true,
             excludedFromMemoryIDs: [],
-            offlineModeEnabled: offlineModeEnabled
+            offlineModeEnabled: offlineModeEnabled,
+            screenContextEnabled: false
         )
     }
 }

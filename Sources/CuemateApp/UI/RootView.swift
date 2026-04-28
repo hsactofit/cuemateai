@@ -598,6 +598,12 @@ struct StartSessionWorkspaceView: View {
                 CompactMetric(title: "Speaker Read", value: model.speakerReadSummary)
                 CompactMetric(title: "Transcription", value: model.transcriptionProvider.title)
                 CompactMetric(title: "Response", value: providerLabel(model.generationProvider))
+                if model.screenContextEnabled {
+                    CompactMetric(
+                        title: "Screen",
+                        value: model.screenContextText.isEmpty ? "No capture yet" : "\(model.screenContextText.count) chars"
+                    )
+                }
                 CompactMetric(title: "Intent", value: model.detectedIntent.title)
                 CompactMetric(title: "Moment", value: model.liveMomentLabel)
                 CompactMetric(title: "Mode", value: model.suggestedResponseMode.title)
@@ -872,6 +878,7 @@ struct SettingsWorkspaceView: View {
                     setupCard
                     providerCard
                     offlineModeCard
+                    screenContextCard
                     privacyCard
                     memoryControlsCard
                 }
@@ -1153,6 +1160,88 @@ struct SettingsWorkspaceView: View {
                     get: { model.clickThroughEnabled },
                     set: { model.setClickThrough($0) }
                 ))
+            }
+        }
+    }
+
+    private var screenContextCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Screen Context")
+                            .font(.title3.weight(.semibold))
+                        Text("Captures visible text from your display via on-device OCR and passes it to guidance as slide or shared-content context.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: $model.screenContextEnabled)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                }
+
+                if !model.screenPermissionGranted {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundStyle(.orange)
+                            .font(.caption)
+                        Text("Screen Recording permission is required.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("Grant Access") {
+                            model.requestScreenPermission()
+                        }
+                        .font(.caption)
+                        .buttonStyle(.bordered)
+                    }
+                } else if model.screenContextEnabled {
+                    HStack(spacing: 10) {
+                        Button("Refresh Now") {
+                            Task { await model.refreshScreenContext() }
+                        }
+                        .buttonStyle(.bordered)
+
+                        if let capturedAt = model.screenContextCapturedAt {
+                            Text("Last capture \(RelativeDateTimeFormatter().localizedString(for: capturedAt, relativeTo: Date()))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if !model.screenContextText.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("CAPTURED TEXT PREVIEW")
+                                .font(.caption2.weight(.bold))
+                                .tracking(0.8)
+                                .foregroundStyle(.tertiary)
+                            Text(String(model.screenContextText.prefix(300)))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .lineLimit(6)
+                        }
+                        .padding(10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color(nsColor: .controlBackgroundColor))
+                        )
+                    }
+
+                    HStack(spacing: 6) {
+                        Image(systemName: "lock.shield")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("Text is extracted on-device and never stored to disk or sent independently of your chosen AI provider.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } else {
+                    Text("Enable to let Cuemate read visible slide text and shared-screen content as additional context during live guidance.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }

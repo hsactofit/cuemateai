@@ -13,11 +13,6 @@ All P0–P3 and the first P4 item (CM-BLG-110) are complete.
 
 ## P4 Future Differentiation
 
-### CM-BLG-113 `Screen and visual context awareness`
-- Add optional awareness of slides, shared screens, or on-screen context where platform capabilities allow.
-- Acceptance:
-  Cuemate understands more than audio and transcript alone.
-
 ### CM-BLG-114 `CRM and calendar integrations`
 - Pull meeting metadata, attendees, notes, and account context from external systems.
 - Acceptance:

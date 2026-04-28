@@ -14,6 +14,8 @@ struct ConversationRequest: Sendable {
     let crossSessionMemory: String
     /// BCP-47 language code for the meeting (e.g. "en", "es", "fr"). Used to instruct AI providers to respond in that language.
     let meetingLanguage: String
+    /// On-screen text captured via OCR. Empty string when screen context is disabled or unavailable.
+    let screenContext: String
 }
 
 struct ConversationResponse: Sendable {

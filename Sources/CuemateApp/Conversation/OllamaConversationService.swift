@@ -163,6 +163,8 @@ struct OllamaConversationService: Sendable {
         if !langLine.isEmpty { parts.append(langLine) }
         if !goalsSection.isEmpty { parts.append(""); parts.append(goalsSection) }
         if !memorySection.isEmpty { parts.append(""); parts.append(memorySection) }
+        let screenSection = request.screenContext.trimmingCharacters(in: .whitespacesAndNewlines)
+
         parts += [
             "",
             "Latest statement/question to respond to:",
@@ -173,6 +175,15 @@ struct OllamaConversationService: Sendable {
             "",
             "Retrieved knowledge:",
             sources.isEmpty ? "None" : sources,
+        ]
+        if !screenSection.isEmpty {
+            parts += [
+                "",
+                "Visible on screen (slide or shared content — for additional context only):",
+                String(screenSection.prefix(1500)),
+            ]
+        }
+        parts += [
             "",
             modeGuidance,
             "",

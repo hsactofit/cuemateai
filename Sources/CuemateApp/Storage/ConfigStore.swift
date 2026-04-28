@@ -17,12 +17,14 @@ struct AppState: Codable, Sendable {
     var memoryEnabled: Bool = true
     var excludedFromMemoryIDs: [String] = []
     var offlineModeEnabled: Bool = false
+    var screenContextEnabled: Bool = false
 
     enum CodingKeys: String, CodingKey {
         case configuration, overlayContent, clickThroughEnabled, isPaused
         case overlayPinnedNearCamera, overlayAnchor, overlayHorizontalInset, overlayVerticalInset
         case confidenceMode, currentSuggestionIndex, transcriptionProvider, generationProvider
         case autoResponseEnabled, memoryEnabled, excludedFromMemoryIDs, offlineModeEnabled
+        case screenContextEnabled
     }
 
     init(from decoder: Decoder) throws {
@@ -43,6 +45,7 @@ struct AppState: Codable, Sendable {
         memoryEnabled = (try? c.decode(Bool.self, forKey: .memoryEnabled)) ?? true
         excludedFromMemoryIDs = (try? c.decode([String].self, forKey: .excludedFromMemoryIDs)) ?? []
         offlineModeEnabled = (try? c.decode(Bool.self, forKey: .offlineModeEnabled)) ?? false
+        screenContextEnabled = (try? c.decode(Bool.self, forKey: .screenContextEnabled)) ?? false
     }
 
     init(configuration: MeetingConfiguration, overlayContent: OverlayContent,
@@ -51,7 +54,7 @@ struct AppState: Codable, Sendable {
          confidenceMode: String, currentSuggestionIndex: Int,
          transcriptionProvider: TranscriptionProvider, generationProvider: GenerationProvider,
          autoResponseEnabled: Bool, memoryEnabled: Bool, excludedFromMemoryIDs: [String],
-         offlineModeEnabled: Bool) {
+         offlineModeEnabled: Bool, screenContextEnabled: Bool) {
         self.configuration = configuration
         self.overlayContent = overlayContent
         self.clickThroughEnabled = clickThroughEnabled
@@ -68,6 +71,7 @@ struct AppState: Codable, Sendable {
         self.memoryEnabled = memoryEnabled
         self.excludedFromMemoryIDs = excludedFromMemoryIDs
         self.offlineModeEnabled = offlineModeEnabled
+        self.screenContextEnabled = screenContextEnabled
     }
 }
 
