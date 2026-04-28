@@ -2629,13 +2629,15 @@ final class AppModel: ObservableObject {
         let latestQ = segments.first(where: {
             normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName)
         })
+        let intent = detectIntent(from: latestQ?.text ?? latestTranscriptText)
         return ConversationRequest(
             configuration: configuration,
             transcriptSegments: segments,
             retrievalResults: retrievalResults,
             userDisplayName: userDisplayName,
             collaboratorRoleLabel: collaboratorRoleLabel,
-            latestQuestion: latestQ
+            latestQuestion: latestQ,
+            detectedIntent: intent.rawValue
         )
     }
 

@@ -1,5 +1,15 @@
 # Updates Log
 
+## 2026-04-28 (CM-BLG-041 + CM-BLG-043 — sales and interview specialization)
+
+- Added `detectedIntent: String` to `ConversationRequest` — populated from `detectIntent(from:)` on the latest question before building the AI prompt, so intent flows into prompt construction.
+- Extended `MeetingModePromptHelper.systemPromptSection(for:intent:)` with two new internal helpers:
+  - `modeSpecificTactics`: deep mode-specific coaching injected into every prompt for sales, interview, demo, client-review, and internal-sync. Sales: pilot framing, de-risking the ask, ROI reframe. Interview: STAR structure, outcome anchoring, conciseness. Demo: workflow-first, gap pivot. Client-review: progress anchor, open-risk naming. Internal-sync: decision forcing, owner naming.
+  - `intentSpecificGuidance`: intent-aware tactical instruction injected when intent is pricing, objection, decision, nextStep, proof, or clarification — with mode-specific variants for sales and interview.
+- Updated `OpenAIConversationService` and `OllamaConversationService` to pass `intent: request.detectedIntent` into `systemPromptSection`.
+- Added 3 prompt-content tests asserting sales objection guidance mentions reversible next steps, sales pricing guidance mentions pilot/scope, and interview proof guidance mentions outcome/result. Suite now 12 tests, all green.
+- Build verified clean, zero warnings.
+
 ## 2026-04-28 (CM-BLG-031 + CM-BLG-033 — role-aware speaker labeling and context window shaping)
 
 - Added `userDisplayName`, `collaboratorRoleLabel`, and `latestQuestion` fields to `ConversationRequest` so AI services know who's who and which segment to respond to.

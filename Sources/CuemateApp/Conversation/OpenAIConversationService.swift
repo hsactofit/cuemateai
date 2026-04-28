@@ -75,7 +75,7 @@ struct OpenAIConversationService: Sendable {
     private func buildPrompt(from request: ConversationRequest) -> String {
         let you = request.userDisplayName
         let other = request.collaboratorRoleLabel
-        let modeGuidance = modeHelper.systemPromptSection(for: request.configuration.meetingType)
+        let modeGuidance = modeHelper.systemPromptSection(for: request.configuration.meetingType, intent: request.detectedIntent)
 
         let latestQ = request.latestQuestion.map { seg in
             "\(other): \(seg.text.trimmingCharacters(in: .whitespacesAndNewlines))"

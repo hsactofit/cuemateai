@@ -58,11 +58,13 @@ final class GuidanceGuardrailTests: XCTestCase {
             retrievalResults: [],
             userDisplayName: "Alice",
             collaboratorRoleLabel: "Prospect",
-            latestQuestion: nil
+            latestQuestion: nil,
+            detectedIntent: "general"
         )
         XCTAssertEqual(request.userDisplayName, "Alice")
         XCTAssertEqual(request.collaboratorRoleLabel, "Prospect")
         XCTAssertNil(request.latestQuestion)
+        XCTAssertEqual(request.detectedIntent, "general")
     }
 
     // MARK: - ConversationRequest context window (CM-BLG-033)
@@ -76,10 +78,12 @@ final class GuidanceGuardrailTests: XCTestCase {
             retrievalResults: [],
             userDisplayName: "Alice",
             collaboratorRoleLabel: "Prospect",
-            latestQuestion: otherSeg
+            latestQuestion: otherSeg,
+            detectedIntent: "nextStep"
         )
         XCTAssertEqual(request.latestQuestion?.text, "What is the timeline?")
         XCTAssertEqual(request.transcriptSegments.count, 2)
+        XCTAssertEqual(request.detectedIntent, "nextStep")
     }
 
     func testConversationRequestWithNoOtherSpeakerHasNilLatestQuestion() {
@@ -90,9 +94,33 @@ final class GuidanceGuardrailTests: XCTestCase {
             retrievalResults: [],
             userDisplayName: "Alice",
             collaboratorRoleLabel: "Prospect",
-            latestQuestion: nil
+            latestQuestion: nil,
+            detectedIntent: "general"
         )
         XCTAssertNil(request.latestQuestion)
+    }
+
+    // MARK: - MeetingModePromptHelper specialization (CM-BLG-041, CM-BLG-043)
+
+    func testSalesObjctionIntentIncludesReverseRisk() {
+        let helper = MeetingModePromptHelper()
+        let section = helper.systemPromptSection(for: "sales", intent: "objection")
+        XCTAssertTrue(section.contains("reversible") || section.contains("low-risk"),
+                      "Sales objection guidance should mention a low-risk or reversible next step")
+    }
+
+    func testSalesPricingIntentMentionsPilot() {
+        let helper = MeetingModePromptHelper()
+        let section = helper.systemPromptSection(for: "sales", intent: "pricing")
+        XCTAssertTrue(section.lowercased().contains("pilot") || section.lowercased().contains("scope"),
+                      "Sales pricing guidance should mention pilot or scope")
+    }
+
+    func testInterviewModeIncludesOutcomeFraming() {
+        let helper = MeetingModePromptHelper()
+        let section = helper.systemPromptSection(for: "interview", intent: "proof")
+        XCTAssertTrue(section.lowercased().contains("outcome") || section.lowercased().contains("result"),
+                      "Interview proof guidance should mention outcome or result")
     }
 
     // MARK: - SessionDiagnostics defaults

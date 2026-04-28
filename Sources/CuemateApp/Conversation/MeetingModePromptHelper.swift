@@ -62,14 +62,106 @@ struct MeetingModePromptHelper: Sendable {
     }
 
     /// System prompt section for live AI guidance builders (Ollama, OpenAI).
-    /// Describes the mode objective and key signals to watch during the meeting.
-    func systemPromptSection(for meetingType: String) -> String {
+    /// Describes the mode objective, key signals, and intent-specific tactics.
+    func systemPromptSection(for meetingType: String, intent: String = "general") -> String {
         let obj = coachingObjective(for: meetingType)
         let sigs = successSignals(for: meetingType).joined(separator: ", ")
-        return """
-        Mode (\(meetingType)): \(obj)
-        Key signals to watch: \(sigs)
-        """
+        let modeDetail = modeSpecificTactics(for: meetingType)
+        let intentLine = intentSpecificGuidance(intent: intent, meetingType: meetingType)
+
+        var lines = [
+            "Mode (\(meetingType)): \(obj)",
+            "Key signals: \(sigs)",
+        ]
+        if !modeDetail.isEmpty { lines.append(modeDetail) }
+        if !intentLine.isEmpty { lines.append("Current moment (\(intent)): \(intentLine)") }
+        return lines.joined(separator: "\n")
+    }
+
+    private func modeSpecificTactics(for meetingType: String) -> String {
+        switch meetingType {
+        case "sales":
+            return """
+            Sales tactics: Always close on one concrete next step (pilot, call, proposal, intro). \
+            De-risk the ask — start small, prove value, expand later. \
+            When budget comes up, reframe around ROI and start scope. \
+            When timeline is the blocker, suggest one low-commitment action now. \
+            Avoid long feature lists; anchor on one outcome they care about.
+            """
+        case "interview":
+            return """
+            Interview tactics: Structure answers as situation → action → outcome (keep each part tight). \
+            Connect your experience to the outcome the interviewer cares about, not just what you did. \
+            When asked about a weakness or gap, name it clearly then pivot to the mitigating action. \
+            Avoid rambling — one strong 45-second answer beats a 3-minute one.
+            """
+        case "demo":
+            return """
+            Demo tactics: Lead with the workflow value before showing the feature. \
+            If asked about a gap, acknowledge it and pivot to the strongest adjacent feature. \
+            Watch for "can it do X" — answer yes/no first, then qualify. \
+            Close each section with a question about their workflow to keep it conversational.
+            """
+        case "client-review":
+            return """
+            Client review tactics: Anchor on measurable progress first, then name the top open risk. \
+            Don't hide risks — surfacing them builds trust. \
+            Close each topic with a named owner and a date if possible. \
+            If the client raises a concern, validate it before offering a solution.
+            """
+        case "internal-sync":
+            return """
+            Internal sync tactics: Push for a decision or a clear next-step owner at the end of each topic. \
+            If something is blocked, name the dependency and the person who can unblock it. \
+            Avoid restating the problem — move to resolution. \
+            If alignment is unclear, ask a binary question to surface it.
+            """
+        default:
+            return ""
+        }
+    }
+
+    private func intentSpecificGuidance(intent: String, meetingType: String) -> String {
+        switch intent {
+        case "pricing":
+            if meetingType == "sales" || meetingType == "demo" {
+                return "Avoid defending the full price. Reframe around a focused starting scope and ROI. Offer a pilot or phased entry if budget is the blocker."
+            }
+            return "Give a direct answer on cost, then immediately anchor on value delivered."
+        case "objection":
+            if meetingType == "sales" {
+                return "Acknowledge the concern clearly (one sentence). Propose a reversible low-risk next step. Do not oversell or argue. Make it easy to say yes to something small."
+            }
+            if meetingType == "interview" {
+                return "If this is a concern about your experience, acknowledge the gap honestly, then give a concrete example of how you've compensated or learned fast."
+            }
+            return "Validate the concern, then offer one concrete path forward."
+        case "decision":
+            if meetingType == "sales" {
+                return "Make it easy to say yes. Name exactly what the next step is, who does what, and by when. Remove ambiguity."
+            }
+            if meetingType == "internal-sync" {
+                return "Force a binary: decide now, or name who decides by when. Avoid leaving the room without a clear owner."
+            }
+            return "Summarize the decision options clearly and recommend one."
+        case "nextStep":
+            if meetingType == "sales" {
+                return "Close on one specific action: a call, a pilot proposal, an intro, or a document. Name the date. Don't leave it open-ended."
+            }
+            return "Name the next action, the owner, and the timeframe."
+        case "proof":
+            if meetingType == "sales" || meetingType == "demo" {
+                return "Offer a concrete example, a customer story, or a metric. Keep it to one strong signal rather than a list."
+            }
+            if meetingType == "interview" {
+                return "Give one specific example with a measurable outcome. Situation → action → result, tight."
+            }
+            return "Back the claim with one specific example or data point."
+        case "clarification":
+            return "Answer the clarification directly and concisely. If you need to verify something, say so — don't guess."
+        default:
+            return ""
+        }
     }
 
     /// Prompt section for AI-backed pre-meeting brief generation.

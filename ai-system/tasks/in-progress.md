@@ -15,7 +15,8 @@
 
 ## Next Focus
 
-- `CM-BLG-041` Sales call specialization: objection handling, pricing moments, next-step framing, and pilot framing tuned for sales mode. The role/context foundation is now in place to make this impactful.
-- `CM-BLG-043` Interview support specialization: connect-to-outcomes framing, STAR structure, and concise-answer coaching for interview mode.
-- Run `.ai-system/testing/manual-beta-plan.md` and `.ai-system/testing/live-meeting-checklist.md` against the updated role/context prompt structure to verify guidance quality in real scenarios.
-- Consider `CM-BLG-052` (session auto-start suggestions) after role-specific specialization is solid.
+- `CM-BLG-042` Demo assistance specialization: redirect to workflow value, feature gap pivots, pacing the demo with check-in questions.
+- `CM-BLG-044` Internal meeting specialization: decision-forcing, owner tracking, blocker surfacing.
+- `CM-BLG-061` Contact and account context: capture participant notes, company notes, relationship stage in session setup so briefs and guidance are more personalized.
+- Run `.ai-system/testing/manual-beta-plan.md` and `.ai-system/testing/live-meeting-checklist.md` against the full intent-aware prompt stack to verify guidance quality in real scenarios.
+- `CM-BLG-052` (session auto-start suggestions) is a good UX follow-up once the core guidance quality is validated.
