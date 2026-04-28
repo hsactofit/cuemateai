@@ -1,5 +1,12 @@
 # Completed
 
+## 2026-04-28 (session auto-start, overlay enhancements, visual polish)
+
+- `CM-BLG-052` Session auto-start suggestions: `checkAutoStartCondition()` fires when audio is capturing and 2+ other-speaker segments arrive with no active session; `showAutoStartSuggestion` published bool drives a dismissible `autoStartSuggestionCard` in `StartSessionWorkspaceView`; cleared on session start or explicit dismiss.
+- `CM-BLG-100` Compact why-this-answer hints: `overlayWhyText` exposes `overlayContent.why`; `overlayWhyHint(_:)` renders a compact lightbulb hint line below Points in `OverlayPanelView`.
+- `CM-BLG-101` Confidence scoring visibility: plain text confidence label replaced with a color-coded capsule badge (green/yellow/red) via `confidenceBadge(_:)` in the overlay header. 30 tests passing.
+- `CM-BLG-103` Premium calm visual system: full typography, spacing, and color refinement pass — `WorkspaceHeroCard` (neutral system gradient, tracked eyebrow), `SurfaceCard` (padding 18→20, softer border, radius 22→20), `DetailBlock` (uppercase tracked label style, full-width), `CompactMetric` (uppercase label, title3.rounded value), `ActionButton` (rounded font, tinted foreground, radius 14→16), `navPill` (rounded font, per-state foreground), `quickStyleButton` (rounded font, active tint). Build clean, 30 tests passing.
+
 ## 2026-04-28
 
 - `CM-BLG-001` Testing foundation: converted tests to XCTest, added `GuidanceGuardrailTests.swift`; `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test` passes with 9 tests.
