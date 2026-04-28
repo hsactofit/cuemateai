@@ -7,6 +7,15 @@ import SwiftUI
 struct SessionHistoryView: View {
     let sessions: [MeetingSessionRecord]
     let documents: [IngestedDocument]
+    /// Drives selection from outside (e.g. a "Needs Attention" Open button).
+    /// Defaults to a local constant binding so the coordinator call site requires no change.
+    @Binding var externalSelectedID: UUID?
+
+    init(sessions: [MeetingSessionRecord], documents: [IngestedDocument], externalSelectedID: Binding<UUID?> = .constant(nil)) {
+        self.sessions = sessions
+        self.documents = documents
+        self._externalSelectedID = externalSelectedID
+    }
 
     enum HistoryTab { case sessions, people }
 
@@ -37,6 +46,11 @@ struct SessionHistoryView: View {
             Divider()
             rightPane
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .onChange(of: externalSelectedID) { _, newID in
+            guard let newID else { return }
+            selectedID = newID
+            selectedTab = .sessions
         }
     }
 

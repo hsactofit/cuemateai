@@ -568,6 +568,7 @@ final class AppModel: ObservableObject {
     @Published var sessionDiagnostics = SessionDiagnostics()
     @Published var showAutoStartSuggestion = false
     @Published var backgroundTaskLabel = ""
+    private var activeBriefTaskCount = 0
 
     let appPaths: AppPaths
 
@@ -2483,8 +2484,15 @@ final class AppModel: ObservableObject {
     }
 
     private func generateBriefForSession(sessionID: UUID) async {
+        activeBriefTaskCount += 1
         backgroundTaskLabel = "Preparing brief…"
-        defer { backgroundTaskLabel = "" }
+        defer {
+            activeBriefTaskCount -= 1
+            if activeBriefTaskCount <= 0 {
+                activeBriefTaskCount = 0
+                backgroundTaskLabel = ""
+            }
+        }
 
         let snapshot = loadDocumentSnapshot()
         let input = BriefCoordinator.Input(

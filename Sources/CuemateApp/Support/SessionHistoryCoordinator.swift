@@ -34,7 +34,7 @@ struct SessionHistoryCoordinator: Sendable {
     }
 
     /// Produces a `SessionHistoryView` wired to the loaded state.
-    func makeView(from state: HistoryState) -> SessionHistoryView {
+    @MainActor func makeView(from state: HistoryState) -> SessionHistoryView {
         SessionHistoryView(sessions: state.sessions, documents: state.documents)
     }
 }
