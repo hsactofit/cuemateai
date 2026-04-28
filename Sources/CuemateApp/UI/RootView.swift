@@ -88,6 +88,7 @@ struct StartSessionWorkspaceView: View {
             HStack(alignment: .top, spacing: 20) {
                 VStack(alignment: .leading, spacing: 20) {
                     sessionCard
+                    meetingContextCard
                     preMeetingBriefCard
                     recurringMemoryCard
                     readinessCard
@@ -176,6 +177,47 @@ struct StartSessionWorkspaceView: View {
                         CompactMetric(title: "Guidance", value: "\(session.guidanceHistory.count)")
                         CompactMetric(title: "Provider", value: providerLabel(model.generationProvider))
                     }
+                }
+            }
+        }
+    }
+
+    private var meetingContextCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Meeting Context")
+                            .font(.title3.weight(.semibold))
+                        Text("Optional. Helps Cuemate tailor guidance and briefs to the specific person and relationship.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+
+                HStack(spacing: 10) {
+                    TextField("Participant name", text: $model.configuration.participantName)
+                        .textFieldStyle(.roundedBorder)
+
+                    TextField("Company", text: $model.configuration.participantCompany)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                Picker("Relationship", selection: $model.configuration.relationshipStage) {
+                    Text("New contact").tag("new")
+                    Text("Ongoing").tag("ongoing")
+                    Text("Strategic").tag("strategic")
+                }
+                .pickerStyle(.segmented)
+
+                TextField("Prior context note (optional)", text: $model.configuration.priorContextNote)
+                    .textFieldStyle(.roundedBorder)
+
+                if !model.configuration.participantName.isEmpty || !model.configuration.participantCompany.isEmpty {
+                    Text(model.participantContextSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
         }

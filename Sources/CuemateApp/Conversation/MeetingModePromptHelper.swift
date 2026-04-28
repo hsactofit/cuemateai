@@ -164,6 +164,26 @@ struct MeetingModePromptHelper: Sendable {
         }
     }
 
+    /// One-line participant context string for AI prompts.
+    /// Returns an empty string when no context is set so call sites can skip it cleanly.
+    func participantContextLine(for config: MeetingConfiguration) -> String {
+        var parts: [String] = []
+        if !config.participantName.isEmpty  { parts.append(config.participantName) }
+        if !config.participantCompany.isEmpty { parts.append("(\(config.participantCompany))") }
+        let stagePart: String
+        switch config.relationshipStage {
+        case "ongoing":   stagePart = "ongoing relationship"
+        case "strategic": stagePart = "strategic account"
+        default:          stagePart = "new contact"
+        }
+        parts.append(stagePart)
+        let base = parts.joined(separator: " ")
+        if !config.priorContextNote.isEmpty {
+            return "\(base) — \(config.priorContextNote)"
+        }
+        return base
+    }
+
     /// Prompt section for AI-backed pre-meeting brief generation.
     /// Describes the mode goal, focus areas, likely risks, and available context flags.
     /// Use this when building a prompt that should produce a structured pre-meeting brief.

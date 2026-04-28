@@ -1,5 +1,17 @@
 # Updates Log
 
+## 2026-04-28 (CM-BLG-042 + CM-BLG-044 + CM-BLG-061 — demo/internal specialization and contact context)
+
+- `CM-BLG-042` and `CM-BLG-044` are complete via `modeSpecificTactics` shipped in the previous push; no additional code changes needed. Marked complete.
+- Added `participantName`, `participantCompany`, `relationshipStage` ("new"/"ongoing"/"strategic"), and `priorContextNote` to `MeetingConfiguration`.
+- `MeetingConfiguration` now has a backward-compatible custom `init(from:)` that defaults all new fields to empty strings/"new" when decoding old JSON — existing saved configs will not break.
+- Added `MeetingModePromptHelper.participantContextLine(for:)` — composes a one-line participant context summary; returns empty string when no context is set, so call sites can skip it cleanly.
+- Updated `buildPrompt` in `OpenAIConversationService` and `OllamaConversationService` to include a labeled participant line (`Prospect: Sarah (Acme Corp) strategic account — stalled on budget last quarter`) replacing the generic `Prospect (unknown contact)` fallback.
+- Added `participantContextSummary` computed property on `AppModel` for use in the UI preview.
+- Added `meetingContextCard` to `StartSessionWorkspaceView` with participant name, company, relationship stage (segmented picker), and prior context note text fields. Preview summary shown when name or company is non-empty.
+- Added 3 tests: legacy JSON decode defaults, full context line format, no-context line fallback. Suite now 15 tests, all green.
+- Build verified clean, zero warnings.
+
 ## 2026-04-28 (CM-BLG-041 + CM-BLG-043 — sales and interview specialization)
 
 - Added `detectedIntent: String` to `ConversationRequest` — populated from `detectIntent(from:)` on the latest question before building the AI prompt, so intent flows into prompt construction.

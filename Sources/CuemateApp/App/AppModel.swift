@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-struct MeetingConfiguration: Equatable, Codable, Sendable {
+struct MeetingConfiguration: Equatable, Sendable {
     var speakerName = "Me"
     var meetingType = "sales"
     var userLevel = "beginner"
@@ -9,6 +9,34 @@ struct MeetingConfiguration: Equatable, Codable, Sendable {
     var length = "short"
     var creativity = "balanced"
     var aiMode = "active"
+    // CM-BLG-061: contact and account context
+    var participantName = ""
+    var participantCompany = ""
+    /// Relationship stage: "new", "ongoing", or "strategic"
+    var relationshipStage = "new"
+    var priorContextNote = ""
+}
+
+extension MeetingConfiguration: Codable {
+    enum CodingKeys: String, CodingKey {
+        case speakerName, meetingType, userLevel, tone, length, creativity, aiMode
+        case participantName, participantCompany, relationshipStage, priorContextNote
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        speakerName       = (try? c.decode(String.self, forKey: .speakerName))       ?? "Me"
+        meetingType       = (try? c.decode(String.self, forKey: .meetingType))       ?? "sales"
+        userLevel         = (try? c.decode(String.self, forKey: .userLevel))         ?? "beginner"
+        tone              = (try? c.decode(String.self, forKey: .tone))              ?? "confident"
+        length            = (try? c.decode(String.self, forKey: .length))            ?? "short"
+        creativity        = (try? c.decode(String.self, forKey: .creativity))        ?? "balanced"
+        aiMode            = (try? c.decode(String.self, forKey: .aiMode))            ?? "active"
+        participantName   = (try? c.decode(String.self, forKey: .participantName))   ?? ""
+        participantCompany = (try? c.decode(String.self, forKey: .participantCompany)) ?? ""
+        relationshipStage = (try? c.decode(String.self, forKey: .relationshipStage)) ?? "new"
+        priorContextNote  = (try? c.decode(String.self, forKey: .priorContextNote))  ?? ""
+    }
 }
 
 enum MeetingMode: String, CaseIterable, Identifiable, Sendable {
@@ -946,6 +974,10 @@ final class AppModel: ObservableObject {
         }
 
         return context.joined(separator: "  ")
+    }
+
+    var participantContextSummary: String {
+        MeetingModePromptHelper().participantContextLine(for: configuration)
     }
 
     var speakerReadSummary: String {

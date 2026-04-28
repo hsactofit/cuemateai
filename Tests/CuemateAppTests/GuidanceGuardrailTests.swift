@@ -100,6 +100,42 @@ final class GuidanceGuardrailTests: XCTestCase {
         XCTAssertNil(request.latestQuestion)
     }
 
+    // MARK: - MeetingConfiguration backward compat (CM-BLG-061)
+
+    func testMeetingConfigurationDecodesLegacyJsonWithoutContactFields() throws {
+        let json = """
+        {"speakerName":"Alice","meetingType":"sales","userLevel":"beginner","tone":"confident","length":"short","creativity":"balanced","aiMode":"active"}
+        """
+        let config = try JSONDecoder().decode(MeetingConfiguration.self, from: Data(json.utf8))
+        XCTAssertEqual(config.speakerName, "Alice")
+        XCTAssertEqual(config.participantName, "")
+        XCTAssertEqual(config.participantCompany, "")
+        XCTAssertEqual(config.relationshipStage, "new")
+        XCTAssertEqual(config.priorContextNote, "")
+    }
+
+    func testParticipantContextLineWithFullContext() {
+        let helper = MeetingModePromptHelper()
+        var config = MeetingConfiguration()
+        config.participantName = "Sarah"
+        config.participantCompany = "Acme Corp"
+        config.relationshipStage = "strategic"
+        config.priorContextNote = "They stalled on budget last quarter"
+        let line = helper.participantContextLine(for: config)
+        XCTAssertTrue(line.contains("Sarah"))
+        XCTAssertTrue(line.contains("Acme Corp"))
+        XCTAssertTrue(line.contains("strategic"))
+        XCTAssertTrue(line.contains("stalled on budget"))
+    }
+
+    func testParticipantContextLineWithNoContext() {
+        let helper = MeetingModePromptHelper()
+        let config = MeetingConfiguration()
+        let line = helper.participantContextLine(for: config)
+        XCTAssertFalse(line.isEmpty)
+        XCTAssertTrue(line.contains("new contact"))
+    }
+
     // MARK: - MeetingModePromptHelper specialization (CM-BLG-041, CM-BLG-043)
 
     func testSalesObjctionIntentIncludesReverseRisk() {

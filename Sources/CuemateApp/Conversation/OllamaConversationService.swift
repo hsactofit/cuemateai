@@ -125,6 +125,7 @@ struct OllamaConversationService: Sendable {
         let you = request.userDisplayName
         let other = request.collaboratorRoleLabel
         let modeGuidance = modeHelper.systemPromptSection(for: request.configuration.meetingType, intent: request.detectedIntent)
+        let participantContext = modeHelper.participantContextLine(for: request.configuration)
 
         let latestQ = request.latestQuestion.map { seg in
             "\(other): \(seg.text.trimmingCharacters(in: .whitespacesAndNewlines))"
@@ -142,11 +143,13 @@ struct OllamaConversationService: Sendable {
             "[\(result.document.fileName)] \(result.chunk.text)"
         }.joined(separator: "\n")
 
+        let participantLine = participantContext.isEmpty ? "\(other) (unknown contact)" : "\(other): \(participantContext)"
+
         return """
         You are a live meeting copilot. Respond like a calm, premium assistant in a high-pressure meeting.
         Keep the primary answer to 1-2 short sentences. Prefer clarity over completeness.
 
-        Participants: \(you) (user) and \(other).
+        Participants: \(you) (user) | \(participantLine)
         Meeting type: \(request.configuration.meetingType) | tone: \(request.configuration.tone) | length: \(request.configuration.length) | level: \(request.configuration.userLevel)
 
         Latest statement/question to respond to:

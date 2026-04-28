@@ -7,7 +7,10 @@
 - `CM-BLG-031` Role-aware speaker labeling: `collaboratorRoleLabel` (Prospect/Client/Interviewer/Teammate/Other) now flows into `ConversationRequest` and into both AI service prompts. Speaker-labeled transcript lines replace raw text blobs.
 - `CM-BLG-033` Context window shaping: `ConversationRequest.latestQuestion` pinpoints the exact segment to respond to; `buildPrompt` now separates "Latest statement/question" from "Prior context (recent turns)" and trims retrieval to 2 sources. Build clean, 9 tests passing.
 - `CM-BLG-041` Sales call specialization: `modeSpecificTactics` and `intentSpecificGuidance` in `MeetingModePromptHelper` inject deep sales tactics (pilot framing, pricing de-risk, objection reversal, next-step closure) into every AI prompt. Intent flows from `detectIntent` through `ConversationRequest.detectedIntent` to the prompt. 12 tests passing.
+- `CM-BLG-042` Demo assistance specialization: demo-specific tactics (workflow-first framing, feature gap pivots, conversational pacing questions) in `modeSpecificTactics`. Complete.
 - `CM-BLG-043` Interview support specialization: interview mode now gets STAR-structure coaching, outcome-anchoring instruction, conciseness framing, and gap-handling guidance. Intent-specific proof/objection variants tuned for interview context.
+- `CM-BLG-044` Internal meeting support specialization: internal-sync tactics (decision forcing, owner naming, blocker + dependency surfacing, binary alignment questions) in `modeSpecificTactics`. Complete.
+- `CM-BLG-061` Contact and account context: added `participantName`, `participantCompany`, `relationshipStage`, `priorContextNote` to `MeetingConfiguration` with backward-compatible decoding. `participantContextLine` helper composes a one-line summary into both AI prompts. `meetingContextCard` UI in `StartSessionWorkspaceView`. 15 tests passing.
 
 ## 2026-04-26 (Launch-readiness doc audit)
 

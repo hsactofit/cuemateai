@@ -15,8 +15,7 @@
 
 ## Next Focus
 
-- `CM-BLG-042` Demo assistance specialization: redirect to workflow value, feature gap pivots, pacing the demo with check-in questions.
-- `CM-BLG-044` Internal meeting specialization: decision-forcing, owner tracking, blocker surfacing.
-- `CM-BLG-061` Contact and account context: capture participant notes, company notes, relationship stage in session setup so briefs and guidance are more personalized.
-- Run `.ai-system/testing/manual-beta-plan.md` and `.ai-system/testing/live-meeting-checklist.md` against the full intent-aware prompt stack to verify guidance quality in real scenarios.
-- `CM-BLG-052` (session auto-start suggestions) is a good UX follow-up once the core guidance quality is validated.
+- `CM-BLG-062` Meeting goals and success criteria: let users define meeting goal, target outcome, and must-cover points; use these goals to tune live guidance and pre-meeting brief.
+- `CM-BLG-082` Outcome tracking: track if the meeting produced pilot, follow-up, blocked state, internal action, or open risk so history becomes operational.
+- Run `.ai-system/testing/manual-beta-plan.md` and `.ai-system/testing/live-meeting-checklist.md` — the full intent/role/context prompt stack is now in place and ready for real validation.
+- `CM-BLG-052` (session auto-start suggestions) is a UX polish item to consider after outcome tracking.
