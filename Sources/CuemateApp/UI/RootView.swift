@@ -748,7 +748,7 @@ struct HistoryWorkspaceView: View {
                     SessionHistoryView(
                         sessions: model.historyState.sessions,
                         documents: model.historyState.documents,
-                        externalSelectedID: $model.selectedSessionID
+                        selectedID: $model.selectedSessionID
                     )
                     .frame(minHeight: 620)
                 }

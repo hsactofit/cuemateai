@@ -7,20 +7,20 @@ import SwiftUI
 struct SessionHistoryView: View {
     let sessions: [MeetingSessionRecord]
     let documents: [IngestedDocument]
-    /// Drives selection from outside (e.g. a "Needs Attention" Open button).
-    /// Defaults to a local constant binding so the coordinator call site requires no change.
-    @Binding var externalSelectedID: UUID?
+    /// Single source of truth for which session is selected.
+    /// Pass $model.selectedSessionID to drive selection from outside;
+    /// defaults to a discardable local state via the @State-backed init.
+    @Binding var selectedID: UUID?
 
-    init(sessions: [MeetingSessionRecord], documents: [IngestedDocument], externalSelectedID: Binding<UUID?> = .constant(nil)) {
+    init(sessions: [MeetingSessionRecord], documents: [IngestedDocument], selectedID: Binding<UUID?> = .constant(nil)) {
         self.sessions = sessions
         self.documents = documents
-        self._externalSelectedID = externalSelectedID
+        self._selectedID = selectedID
     }
 
     enum HistoryTab { case sessions, people }
 
     @State private var selectedTab: HistoryTab = .sessions
-    @State private var selectedID: UUID?
     @State private var selectedRelationshipID: String?
 
     private var sortedSessions: [MeetingSessionRecord] {
@@ -47,10 +47,9 @@ struct SessionHistoryView: View {
             rightPane
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .onChange(of: externalSelectedID) { _, newID in
-            guard let newID else { return }
-            selectedID = newID
-            selectedTab = .sessions
+        // Switch to Sessions tab whenever selection is driven externally while the view is mounted.
+        .onChange(of: selectedID) { _, newID in
+            if newID != nil { selectedTab = .sessions }
         }
     }
 
