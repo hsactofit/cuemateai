@@ -1,5 +1,9 @@
 # Completed
 
+## 2026-04-28 (memory controls and privacy)
+
+- `CM-BLG-093` Memory controls and privacy: `AppState` gains `memoryEnabled` + `excludedFromMemoryIDs` with backward-compatible decode. `AppModel` exposes `memorySources`, `toggleMemoryExclusion(for:)`, and `clearMemoryExclusions()`. `CrossSessionMemoryBuilder.build` and `relevantSessions` both accept an exclusion set. Settings gains a "Memory Controls" card: enable/disable toggle, per-session include/exclude rows with outcome badge and relative date, clear-exclusions button, and live memory note preview. 39 tests passing.
+
 ## 2026-04-28 (relationship timeline, backlog cleanup)
 
 - `CM-BLG-002` Public repo cleanup: removed tracked `.DS_Store` (already in `.gitignore`); README and product.html were already aligned in earlier pass.

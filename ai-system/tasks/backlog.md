@@ -1,7 +1,7 @@
 # Backlog
 
-This backlog captures current gaps, near-term product work, and future differentiation work.
 Completed items have been removed — see `tasks/completed.md` for the full record.
+All P0–P3 items are complete. What remains is P4 future-differentiation work.
 
 ## Product Principles
 
@@ -10,28 +10,6 @@ Completed items have been removed — see `tasks/completed.md` for the full reco
 - The product should earn trust through timing, accuracy, and privacy.
 - The live moment matters more than after-the-fact summaries.
 - The first paid experience should feel premium, calm, and role-aware.
-
-## Critical Buyer Risks To Solve
-
-- Trust can break from one bad live answer, one confusing overlay moment, or one delay.
-- The product can feel replaceable if it does not create a signature "missed context recovery" moment.
-- The user may feel overloaded if setup, provider selection, and session control remain too manual.
-- Weak speaker understanding can make guidance feel unreliable.
-- Generic guidance will not justify purchase for sales, client, or interview workflows.
-
-## P3 Memory And Personalization
-
-### CM-BLG-092 `Relationship timeline`
-- Maintain a simple timeline for recurring people and organizations.
-- Group past sessions by participant name → company, show outcomes, recurring topics, last contact.
-- Acceptance:
-  Prior context is available before and during future meetings without manual tracking.
-
-### CM-BLG-093 `Memory controls and privacy boundaries`
-- Let the user inspect, edit, disable, or delete saved memory.
-- Show which sessions contributed to the current cross-session memory note.
-- Acceptance:
-  Personalization does not undermine the privacy-first promise.
 
 ## P4 Future Differentiation
 
@@ -66,7 +44,9 @@ Completed items have been removed — see `tasks/completed.md` for the full reco
 - Acceptance:
   Cuemate becomes more valuable for teams, not only individuals.
 
-## Suggested Next Execution Order
+## Next Action
 
-- Near term: `CM-BLG-092`, `CM-BLG-093`
-- Future: `CM-BLG-110`, `CM-BLG-111`, `CM-BLG-112`, `CM-BLG-113`, `CM-BLG-114`, `CM-BLG-115`
+All P0–P3 work is shipped. Before starting P4:
+- Run `.ai-system/testing/manual-beta-plan.md` against the full prompt stack.
+- Run `.ai-system/testing/live-meeting-checklist.md` in a real meeting.
+- Fix anything surfaced, then pick a P4 item.
