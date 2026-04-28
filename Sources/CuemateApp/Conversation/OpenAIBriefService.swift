@@ -14,6 +14,8 @@ struct OpenAIBriefGenerationRequest: Sendable {
     let priorSessionNote: String?
     /// Calendar event context from an imported ICS file. Empty string when none.
     var calendarContext: String = ""
+    /// Active playbook team context. Empty string when no playbook is active.
+    var teamContext: String = ""
 }
 
 // MARK: - Error
@@ -115,6 +117,11 @@ struct OpenAIBriefService: Sendable {
         systemParts.append("- priorSessionNote: a short sentence referencing prior session context, or empty string if none")
 
         var userParts: [String] = []
+
+        if !input.teamContext.isEmpty {
+            userParts.append("Team context (always apply to guidance):")
+            userParts.append(input.teamContext)
+        }
 
         if !input.calendarContext.isEmpty {
             userParts.append("Calendar event context:")

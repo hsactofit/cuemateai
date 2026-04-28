@@ -591,6 +591,10 @@ final class AppModel: ObservableObject {
     @Published var screenContextText = ""
     @Published var screenContextCapturedAt: Date? = nil
     @Published var importedCalendarEvent: CalendarEventRecord? = nil
+    @Published var playbooks: [MeetingPlaybook] = []
+    @Published var activePlaybookID: UUID? = nil {
+        didSet { persistState() }
+    }
     @Published var importedDocuments: [IngestedDocument] = []
     @Published var lastImportedChunkCount = 0
     @Published var retrievalQuery = ""
@@ -645,6 +649,7 @@ final class AppModel: ObservableObject {
     private let speechTranscriptionService: SpeechTranscriptionService
     private let whisperCppTranscriptionService: WhisperCppTranscriptionService
     private let screenContextService: ScreenContextService
+    private let playbookStore: PlaybookStore  // non-optional; init assigns default
     private let conversationEngine: ConversationEngine
     private let postMeetingSummaryService: PostMeetingSummaryService
     private let voiceActivityDetector: VoiceActivityDetector
@@ -674,6 +679,7 @@ final class AppModel: ObservableObject {
         speechTranscriptionService: SpeechTranscriptionService = SpeechTranscriptionService(),
         whisperCppTranscriptionService: WhisperCppTranscriptionService? = nil,
         screenContextService: ScreenContextService = ScreenContextService(),
+        playbookStoreOverride: PlaybookStore? = nil,
         conversationEngine: ConversationEngine = ConversationEngine(),
         postMeetingSummaryService: PostMeetingSummaryService = PostMeetingSummaryService(),
         voiceActivityDetector: VoiceActivityDetector = VoiceActivityDetector(),
@@ -692,6 +698,7 @@ final class AppModel: ObservableObject {
         self.speechTranscriptionService = speechTranscriptionService
         self.whisperCppTranscriptionService = whisperCppTranscriptionService ?? WhisperCppTranscriptionService(appPaths: appPaths)
         self.screenContextService = screenContextService
+        self.playbookStore = playbookStoreOverride ?? PlaybookStore(appPaths: appPaths)
         self.conversationEngine = conversationEngine
         self.postMeetingSummaryService = postMeetingSummaryService
         self.voiceActivityDetector = voiceActivityDetector
@@ -715,6 +722,7 @@ final class AppModel: ObservableObject {
         configureAudioCallbacks()
         configureTranscriptionCallbacks()
         checkScreenPermission()
+        playbooks = playbookStore.load()
     }
 
     func bootstrapStorage() {
@@ -1791,6 +1799,77 @@ final class AppModel: ObservableObject {
         appendLog("Calendar event cleared")
     }
 
+    // MARK: - Playbooks
+
+    var activePlaybook: MeetingPlaybook? {
+        guard let id = activePlaybookID else { return nil }
+        return playbooks.first(where: { $0.id == id })
+    }
+
+    func activatePlaybook(_ id: UUID?) {
+        activePlaybookID = id
+    }
+
+    func createPlaybook(name: String, meetingType: String) {
+        let defaults = MeetingPlaybook.defaults.first(where: { $0.meetingType == meetingType })
+        var playbook = MeetingPlaybook(
+            id: UUID(),
+            name: name,
+            meetingType: meetingType,
+            focusAreas: defaults?.focusAreas ?? [],
+            coachingCues: defaults?.coachingCues ?? [],
+            riskSignals: defaults?.riskSignals ?? [],
+            teamContext: "",
+            isBuiltIn: false,
+            createdAt: Date()
+        )
+        _ = playbook  // suppress unused warning
+        playbooks.append(playbook)
+        savePlaybooks()
+        appendLog("Created playbook: \(name)")
+    }
+
+    func deletePlaybook(_ id: UUID) {
+        guard let playbook = playbooks.first(where: { $0.id == id }), !playbook.isBuiltIn else { return }
+        playbooks.removeAll(where: { $0.id == id })
+        if activePlaybookID == id { activePlaybookID = nil }
+        savePlaybooks()
+        appendLog("Deleted playbook: \(playbook.name)")
+    }
+
+    func importPlaybook(from url: URL) {
+        do {
+            let playbook = try playbookStore.importPlaybook(from: url)
+            playbooks.append(playbook)
+            savePlaybooks()
+            appendLog("Imported playbook: \(playbook.name)")
+        } catch {
+            appendLog("Playbook import failed: \(error.localizedDescription)")
+        }
+    }
+
+    func exportPlaybook(_ playbook: MeetingPlaybook) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "cuemate-playbook-\(playbook.name.lowercased().replacingOccurrences(of: " ", with: "-")).json"
+        panel.allowedContentTypes = [.json]
+        if panel.runModal() == .OK, let url = panel.url {
+            do {
+                _ = try playbookStore.exportPlaybook(playbook, to: url.deletingLastPathComponent())
+                appendLog("Exported playbook: \(playbook.name)")
+            } catch {
+                appendLog("Playbook export failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func savePlaybooks() {
+        do {
+            try playbookStore.save(playbooks)
+        } catch {
+            appendLog("Failed to save playbooks: \(error.localizedDescription)")
+        }
+    }
+
     var privacyExecutionSummary: String {
         switch generationProvider {
         case .localHeuristic:
@@ -2361,6 +2440,7 @@ final class AppModel: ObservableObject {
             excludedFromMemoryIDs = Set(state.excludedFromMemoryIDs.compactMap(UUID.init))
             offlineModeEnabled = state.offlineModeEnabled
             screenContextEnabled = state.screenContextEnabled
+            activePlaybookID = state.activePlaybookID.isEmpty ? nil : UUID(uuidString: state.activePlaybookID)
             appendLog("Loaded saved local configuration")
         } catch {
             appendLog("Using default local configuration")
@@ -2385,7 +2465,8 @@ final class AppModel: ObservableObject {
             memoryEnabled: memoryEnabled,
             excludedFromMemoryIDs: excludedFromMemoryIDs.map(\.uuidString),
             offlineModeEnabled: offlineModeEnabled,
-            screenContextEnabled: screenContextEnabled
+            screenContextEnabled: screenContextEnabled,
+            activePlaybookID: activePlaybookID?.uuidString ?? ""
         )
 
         do {
@@ -2633,7 +2714,8 @@ final class AppModel: ObservableObject {
             documentIDs: importedDocuments.map(\.id),
             priorSessions: meetingSessions.filter { !$0.isActive },
             strategy: selectedBriefGenerationStrategy(),
-            calendarContext: importedCalendarEvent?.calendarContextSummary ?? ""
+            calendarContext: importedCalendarEvent?.calendarContextSummary ?? "",
+            teamContext: activePlaybook?.teamContext ?? ""
         )
 
         let brief = await BriefCoordinator().build(from: input)
@@ -2885,7 +2967,8 @@ final class AppModel: ObservableObject {
             crossSessionMemory: memoryText,
             meetingLanguage: configuration.meetingLanguage,
             screenContext: screenContextEnabled ? screenContextText : "",
-            calendarContext: importedCalendarEvent?.calendarContextSummary ?? ""
+            calendarContext: importedCalendarEvent?.calendarContextSummary ?? "",
+            teamContext: activePlaybook?.teamContext ?? ""
         )
     }
 

@@ -88,7 +88,8 @@ final class OfflineModeTests: XCTestCase {
             memoryEnabled: true,
             excludedFromMemoryIDs: [],
             offlineModeEnabled: offlineModeEnabled,
-            screenContextEnabled: false
+            screenContextEnabled: false,
+            activePlaybookID: ""
         )
     }
 }

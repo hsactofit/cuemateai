@@ -18,13 +18,14 @@ struct AppState: Codable, Sendable {
     var excludedFromMemoryIDs: [String] = []
     var offlineModeEnabled: Bool = false
     var screenContextEnabled: Bool = false
+    var activePlaybookID: String = ""
 
     enum CodingKeys: String, CodingKey {
         case configuration, overlayContent, clickThroughEnabled, isPaused
         case overlayPinnedNearCamera, overlayAnchor, overlayHorizontalInset, overlayVerticalInset
         case confidenceMode, currentSuggestionIndex, transcriptionProvider, generationProvider
         case autoResponseEnabled, memoryEnabled, excludedFromMemoryIDs, offlineModeEnabled
-        case screenContextEnabled
+        case screenContextEnabled, activePlaybookID
     }
 
     init(from decoder: Decoder) throws {
@@ -46,6 +47,7 @@ struct AppState: Codable, Sendable {
         excludedFromMemoryIDs = (try? c.decode([String].self, forKey: .excludedFromMemoryIDs)) ?? []
         offlineModeEnabled = (try? c.decode(Bool.self, forKey: .offlineModeEnabled)) ?? false
         screenContextEnabled = (try? c.decode(Bool.self, forKey: .screenContextEnabled)) ?? false
+        activePlaybookID = (try? c.decode(String.self, forKey: .activePlaybookID)) ?? ""
     }
 
     init(configuration: MeetingConfiguration, overlayContent: OverlayContent,
@@ -54,7 +56,7 @@ struct AppState: Codable, Sendable {
          confidenceMode: String, currentSuggestionIndex: Int,
          transcriptionProvider: TranscriptionProvider, generationProvider: GenerationProvider,
          autoResponseEnabled: Bool, memoryEnabled: Bool, excludedFromMemoryIDs: [String],
-         offlineModeEnabled: Bool, screenContextEnabled: Bool) {
+         offlineModeEnabled: Bool, screenContextEnabled: Bool, activePlaybookID: String) {
         self.configuration = configuration
         self.overlayContent = overlayContent
         self.clickThroughEnabled = clickThroughEnabled
@@ -72,6 +74,7 @@ struct AppState: Codable, Sendable {
         self.excludedFromMemoryIDs = excludedFromMemoryIDs
         self.offlineModeEnabled = offlineModeEnabled
         self.screenContextEnabled = screenContextEnabled
+        self.activePlaybookID = activePlaybookID
     }
 }
 

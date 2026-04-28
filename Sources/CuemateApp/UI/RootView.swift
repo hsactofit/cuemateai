@@ -125,6 +125,9 @@ struct StartSessionWorkspaceView: View {
                     if model.showAutoStartSuggestion {
                         autoStartSuggestionCard
                     }
+                    if let playbook = model.activePlaybook {
+                        activePlaybookBanner(playbook)
+                    }
                     sessionCard
                     meetingContextCard
                     meetingGoalsCard
@@ -219,6 +222,30 @@ struct StartSessionWorkspaceView: View {
                 }
             }
         }
+    }
+
+    private func activePlaybookBanner(_ playbook: MeetingPlaybook) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "book.closed.fill")
+                .font(.caption)
+                .foregroundStyle(.purple)
+            Text("Playbook active:")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(playbook.name)
+                .font(.caption.weight(.semibold))
+            Spacer()
+            Button("Change") { model.selectedSection = .settings }
+                .font(.caption)
+                .buttonStyle(.borderless)
+                .foregroundStyle(Color.accentColor)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.purple.opacity(0.07))
+        )
     }
 
     private var autoStartSuggestionCard: some View {
@@ -938,6 +965,7 @@ struct SettingsWorkspaceView: View {
                     providerCard
                     offlineModeCard
                     screenContextCard
+                    playbookCard
                     privacyCard
                     memoryControlsCard
                 }
@@ -1343,6 +1371,131 @@ struct SettingsWorkspaceView: View {
                 }
             }
         }
+    }
+
+    private var playbookCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Team Playbooks")
+                            .font(.title3.weight(.semibold))
+                        Text("Activate a playbook to inject team-specific coaching cues, focus areas, and context into every session.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if model.activePlaybook != nil {
+                        StatusDot(title: "Active", color: .green)
+                    }
+                }
+
+                if let active = model.activePlaybook {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                            .font(.caption)
+                        Text(active.name)
+                            .font(.caption.weight(.semibold))
+                        Text("·")
+                            .foregroundStyle(.secondary)
+                        Text(active.meetingType.replacingOccurrences(of: "-", with: " ").capitalized)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Deactivate") { model.activatePlaybook(nil) }
+                            .font(.caption)
+                            .buttonStyle(.borderless)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if !active.teamContext.isEmpty {
+                        Text(active.teamContext.prefix(200).description)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Divider()
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(model.playbooks) { playbook in
+                        playbookRow(playbook)
+                    }
+                }
+
+                HStack(spacing: 10) {
+                    Button("New Playbook") {
+                        model.createPlaybook(
+                            name: "My \(model.configuration.meetingType.replacingOccurrences(of: "-", with: " ").capitalized) Playbook",
+                            meetingType: model.configuration.meetingType
+                        )
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Import .json") {
+                        let panel = NSOpenPanel()
+                        panel.allowedContentTypes = [.json]
+                        panel.allowsMultipleSelection = false
+                        if panel.runModal() == .OK, let url = panel.url {
+                            model.importPlaybook(from: url)
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+    }
+
+    private func playbookRow(_ playbook: MeetingPlaybook) -> some View {
+        let isActive = model.activePlaybookID == playbook.id
+        return HStack(spacing: 10) {
+            Image(systemName: isActive ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(isActive ? Color.green : Color.secondary)
+                .font(.caption)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(playbook.name)
+                    .font(.caption.weight(isActive ? .semibold : .regular))
+                    .lineLimit(1)
+                Text(playbook.meetingType.replacingOccurrences(of: "-", with: " ").capitalized
+                     + (playbook.isBuiltIn ? " · Built-in" : ""))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
+            Spacer()
+
+            Button(isActive ? "Active" : "Use") {
+                model.activatePlaybook(isActive ? nil : playbook.id)
+            }
+            .font(.caption)
+            .buttonStyle(.borderless)
+            .foregroundStyle(isActive ? Color.secondary : Color.accentColor)
+
+            if !playbook.isBuiltIn {
+                Button(action: { model.exportPlaybook(playbook) }) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+
+                Button(action: { model.deletePlaybook(playbook.id) }) {
+                    Image(systemName: "trash")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.red.opacity(0.7))
+            }
+        }
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(isActive ? Color.green.opacity(0.06) : Color(nsColor: .controlBackgroundColor))
+        )
     }
 
     private var memoryControlsCard: some View {

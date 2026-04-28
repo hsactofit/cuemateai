@@ -18,6 +18,8 @@ struct ConversationRequest: Sendable {
     let screenContext: String
     /// Calendar event context imported from an ICS file. Empty string when no event is imported.
     let calendarContext: String
+    /// Team playbook context injected when an active playbook has a teamContext note.
+    let teamContext: String
 }
 
 struct ConversationResponse: Sendable {

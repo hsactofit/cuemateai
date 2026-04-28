@@ -13,13 +13,10 @@ All P0–P3 and the first P4 item (CM-BLG-110) are complete.
 
 ## P4 Future Differentiation
 
-### CM-BLG-115 `Team and manager workflows`
-- Support shared best-practice templates, review notes, coaching packs, and team-specific playbooks.
-- Acceptance:
-  Cuemate becomes more valuable for teams, not only individuals.
+All P4 items (CM-BLG-110–115) are complete. See `tasks/completed.md` for the full record.
 
 ## Next Action
 
-Run real-meeting validation before starting additional P4 items:
+Run real-meeting validation before planning the next product phase:
 - `.ai-system/testing/manual-beta-plan.md` — four full meeting scenarios
 - `.ai-system/testing/live-meeting-checklist.md` — real-meeting pre/during/post checklist

@@ -91,7 +91,8 @@ final class CalendarEventParserTests: XCTestCase {
             crossSessionMemory: "",
             meetingLanguage: "en",
             screenContext: "",
-            calendarContext: "Meeting: Demo\nAttendees: Alice"
+            calendarContext: "Meeting: Demo\nAttendees: Alice",
+            teamContext: ""
         )
         XCTAssertTrue(request.calendarContext.contains("Demo"))
     }

@@ -69,7 +69,8 @@ final class GuidanceGuardrailTests: XCTestCase {
             crossSessionMemory: memory,
             meetingLanguage: "en",
             screenContext: "",
-            calendarContext: ""
+            calendarContext: "",
+            teamContext: ""
         )
     }
 

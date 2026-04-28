@@ -15,6 +15,8 @@ struct OllamaBriefGenerationRequest: Sendable {
     let priorSessionNote: String?
     /// Calendar event context from an imported ICS file. Empty string when none.
     var calendarContext: String = ""
+    /// Active playbook team context. Empty string when no playbook is active.
+    var teamContext: String = ""
 }
 
 // MARK: - Error
@@ -101,6 +103,12 @@ struct OllamaBriefService: Sendable {
             "",
             modeSection,
         ]
+
+        if !input.teamContext.isEmpty {
+            parts.append("")
+            parts.append("Team context (always apply to guidance):")
+            parts.append(input.teamContext)
+        }
 
         if !input.calendarContext.isEmpty {
             parts.append("")

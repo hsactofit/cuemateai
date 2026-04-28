@@ -137,6 +137,10 @@ struct OpenAIConversationService: Sendable {
         if !calSection.isEmpty {
             parts += ["", "Calendar event context:", calSection]
         }
+        let teamSection = request.teamContext.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !teamSection.isEmpty {
+            parts += ["", "Team context (always apply):", teamSection]
+        }
         parts += [
             "",
             modeGuidance,

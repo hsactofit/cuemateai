@@ -52,6 +52,8 @@ struct MeetingBriefBuilder: Sendable {
         let priorSessions: [MeetingSessionRecord]
         /// Calendar event context imported from an ICS file. Empty string when none.
         var calendarContext: String = ""
+        /// Active playbook team context. Empty string when no playbook is active.
+        var teamContext: String = ""
     }
 
     func build(from input: BriefInput) -> MeetingBrief {
@@ -74,6 +76,10 @@ struct MeetingBriefBuilder: Sendable {
         if !input.calendarContext.isEmpty {
             let calNote = "Calendar event: \(input.calendarContext)"
             priorNote = priorNote.map { "\($0)\n\(calNote)" } ?? calNote
+        }
+        if !input.teamContext.isEmpty {
+            let teamNote = "Team context: \(input.teamContext)"
+            priorNote = priorNote.map { "\($0)\n\(teamNote)" } ?? teamNote
         }
 
         return MeetingBrief(
@@ -416,7 +422,8 @@ extension MeetingBriefBuilder.BriefInput {
         snapshot: DocumentLibrarySnapshot,
         documentIDs: [UUID],
         priorSessions: [MeetingSessionRecord],
-        calendarContext: String = ""
+        calendarContext: String = "",
+        teamContext: String = ""
     ) -> Self {
         let idSet = Set(documentIDs)
         let attached = snapshot.documents.filter { idSet.contains($0.id) }
@@ -425,7 +432,8 @@ extension MeetingBriefBuilder.BriefInput {
             attachedDocuments: attached,
             documentChunks: snapshot.chunks,
             priorSessions: priorSessions,
-            calendarContext: calendarContext
+            calendarContext: calendarContext,
+            teamContext: teamContext
         )
     }
 }

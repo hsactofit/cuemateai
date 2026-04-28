@@ -94,7 +94,8 @@ final class ScreenContextTests: XCTestCase {
             crossSessionMemory: "",
             meetingLanguage: "en",
             screenContext: screenContext,
-            calendarContext: ""
+            calendarContext: "",
+            teamContext: ""
         )
     }
 
@@ -116,7 +117,8 @@ final class ScreenContextTests: XCTestCase {
             memoryEnabled: true,
             excludedFromMemoryIDs: [],
             offlineModeEnabled: false,
-            screenContextEnabled: screenContextEnabled
+            screenContextEnabled: screenContextEnabled,
+            activePlaybookID: ""
         )
     }
 }
