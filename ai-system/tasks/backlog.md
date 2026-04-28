@@ -1,7 +1,7 @@
 # Backlog
 
 Completed items have been removed — see `tasks/completed.md` for the full record.
-All P0–P3 items are complete. What remains is P4 future-differentiation work.
+All P0–P3 and the first P4 item (CM-BLG-110) are complete.
 
 ## Product Principles
 
@@ -12,12 +12,6 @@ All P0–P3 items are complete. What remains is P4 future-differentiation work.
 - The first paid experience should feel premium, calm, and role-aware.
 
 ## P4 Future Differentiation
-
-### CM-BLG-110 `Autonomous background help`
-- Allow small useful tasks to be handled in the background by request:
-  prep notes, follow-up draft, recap, reminders, and session summaries.
-- Acceptance:
-  Cuemate starts acting like an assistant, not just a live overlay.
 
 ### CM-BLG-111 `Multilingual meeting support`
 - Support multilingual transcription, context understanding, and response guidance.
@@ -46,7 +40,6 @@ All P0–P3 items are complete. What remains is P4 future-differentiation work.
 
 ## Next Action
 
-All P0–P3 work is shipped. Before starting P4:
-- Run `.ai-system/testing/manual-beta-plan.md` against the full prompt stack.
-- Run `.ai-system/testing/live-meeting-checklist.md` in a real meeting.
-- Fix anything surfaced, then pick a P4 item.
+Run real-meeting validation before starting additional P4 items:
+- `.ai-system/testing/manual-beta-plan.md` — four full meeting scenarios
+- `.ai-system/testing/live-meeting-checklist.md` — real-meeting pre/during/post checklist

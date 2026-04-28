@@ -1,5 +1,9 @@
 # Completed
 
+## 2026-04-28 (autonomous background help)
+
+- `CM-BLG-110` Autonomous background help: `backgroundTaskLabel` (@Published) is set during `generateBriefForSession` and shown in the top bar as a ProgressView pill. `pendingFollowUpSessions` detects completed sessions (≤30 days old) with action items and no follow-up notes. `markFollowUpDone(for:)` sets `followUpNotes = "Handled"` as completion signal. HistoryWorkspaceView gains a "Needs Attention" card with Open and Mark Done per-row actions. 8 new tests, 47 total passing.
+
 ## 2026-04-28 (memory controls and privacy)
 
 - `CM-BLG-093` Memory controls and privacy: `AppState` gains `memoryEnabled` + `excludedFromMemoryIDs` with backward-compatible decode. `AppModel` exposes `memorySources`, `toggleMemoryExclusion(for:)`, and `clearMemoryExclusions()`. `CrossSessionMemoryBuilder.build` and `relevantSessions` both accept an exclusion set. Settings gains a "Memory Controls" card: enable/disable toggle, per-session include/exclude rows with outcome badge and relative date, clear-exclusions button, and live memory note preview. 39 tests passing.

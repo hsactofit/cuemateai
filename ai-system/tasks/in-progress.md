@@ -1,19 +1,21 @@
 # In Progress
 
-All P0–P3 backlog items are complete. The backlog now only contains P4 future-differentiation work.
+All P0–P3 items and CM-BLG-110 (autonomous background help) are complete.
+The backlog contains 5 remaining P4 future-differentiation items.
 
 ## Status
 
 - Phase 1 (trust + reliability): complete.
 - Phase 2 (pre/post meeting journey, mode specialization): complete.
 - Phase 3 (live intelligence, memory, personalization, privacy controls): complete.
+- Phase 4 (future differentiation): CM-BLG-110 shipped; CM-BLG-111–115 remain.
 
 ## Next Action
 
-Before picking a P4 item, run real-meeting validation:
-- `.ai-system/testing/manual-beta-plan.md` — four full meeting scenarios
-- `.ai-system/testing/live-meeting-checklist.md` — real-meeting pre/during/post checklist
+Run real-meeting validation before continuing with P4:
+- `.ai-system/testing/manual-beta-plan.md`
+- `.ai-system/testing/live-meeting-checklist.md`
 
-Fix anything surfaced, then consider:
-- `CM-BLG-110` Autonomous background help (highest value P4 item)
-- `CM-BLG-112` Offline-capable mode (supports the privacy-first promise)
+Next P4 candidates (in recommended order):
+- `CM-BLG-112` Offline-capable mode — strengthens the local-first privacy promise
+- `CM-BLG-111` Multilingual support — expands reach
