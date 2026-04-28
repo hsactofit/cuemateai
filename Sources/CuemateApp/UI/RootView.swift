@@ -308,6 +308,16 @@ struct StartSessionWorkspaceView: View {
                 }
                 .pickerStyle(.segmented)
 
+                Picker("Language", selection: $model.configuration.meetingLanguage) {
+                    ForEach(MeetingLanguage.allCases) { lang in
+                        Text(lang.title).tag(lang.rawValue)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: model.configuration.meetingLanguage) { _, _ in
+                    model.applyMeetingLanguageToTranscriptionServices()
+                }
+
                 TextField("Prior context note (optional)", text: $model.configuration.priorContextNote)
                     .textFieldStyle(.roundedBorder)
 
@@ -1094,6 +1104,16 @@ struct SettingsWorkspaceView: View {
                     }
                 }
                 .pickerStyle(.menu)
+
+                Picker("Meeting language", selection: $model.configuration.meetingLanguage) {
+                    ForEach(MeetingLanguage.allCases) { lang in
+                        Text(lang.title).tag(lang.rawValue)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: model.configuration.meetingLanguage) { _, _ in
+                    model.applyMeetingLanguageToTranscriptionServices()
+                }
 
                 Button("Apply Meeting Template") {
                     model.applyMeetingMode(model.meetingMode)

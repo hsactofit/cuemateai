@@ -1,6 +1,55 @@
 import Foundation
 import SwiftUI
 
+enum MeetingLanguage: String, CaseIterable, Codable, Sendable, Identifiable {
+    case autoDetect = "auto"
+    case english    = "en"
+    case spanish    = "es"
+    case french     = "fr"
+    case german     = "de"
+    case japanese   = "ja"
+    case chinese    = "zh"
+    case portuguese = "pt"
+    case hindi      = "hi"
+    case arabic     = "ar"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .autoDetect:  "Auto-detect"
+        case .english:     "English"
+        case .spanish:     "Spanish"
+        case .french:      "French"
+        case .german:      "German"
+        case .japanese:    "Japanese"
+        case .chinese:     "Chinese"
+        case .portuguese:  "Portuguese"
+        case .hindi:       "Hindi"
+        case .arabic:      "Arabic"
+        }
+    }
+
+    /// BCP-47 locale identifier for Apple Speech; auto-detect falls back to en-US.
+    var appleSpeechLocale: Locale {
+        switch self {
+        case .autoDetect:  Locale(identifier: "en-US")
+        case .english:     Locale(identifier: "en-US")
+        case .spanish:     Locale(identifier: "es-ES")
+        case .french:      Locale(identifier: "fr-FR")
+        case .german:      Locale(identifier: "de-DE")
+        case .japanese:    Locale(identifier: "ja-JP")
+        case .chinese:     Locale(identifier: "zh-Hans-CN")
+        case .portuguese:  Locale(identifier: "pt-BR")
+        case .hindi:       Locale(identifier: "hi-IN")
+        case .arabic:      Locale(identifier: "ar-SA")
+        }
+    }
+
+    /// whisper.cpp -l flag value.
+    var whisperCode: String { rawValue }
+}
+
 struct MeetingConfiguration: Equatable, Sendable {
     var speakerName = "Me"
     var meetingType = "sales"
@@ -21,6 +70,8 @@ struct MeetingConfiguration: Equatable, Sendable {
     var mustCoverPoints = ""
     // CM-BLG-091: persisted answer style preference for style learning
     var preferredAnswerStyle = ""
+    // CM-BLG-111: language of the meeting (MeetingLanguage.rawValue)
+    var meetingLanguage = "en"
 }
 
 extension MeetingConfiguration: Codable {
@@ -29,6 +80,7 @@ extension MeetingConfiguration: Codable {
         case participantName, participantCompany, relationshipStage, priorContextNote
         case meetingGoal, targetOutcome, mustCoverPoints
         case preferredAnswerStyle
+        case meetingLanguage
     }
 
     init(from decoder: Decoder) throws {
@@ -48,6 +100,7 @@ extension MeetingConfiguration: Codable {
         targetOutcome        = (try? c.decode(String.self, forKey: .targetOutcome))        ?? ""
         mustCoverPoints      = (try? c.decode(String.self, forKey: .mustCoverPoints))      ?? ""
         preferredAnswerStyle = (try? c.decode(String.self, forKey: .preferredAnswerStyle)) ?? ""
+        meetingLanguage      = (try? c.decode(String.self, forKey: .meetingLanguage))      ?? "en"
     }
 }
 
@@ -1672,6 +1725,19 @@ final class AppModel: ObservableObject {
         offlineModeEnabled ? .localHeuristic : generationProvider
     }
 
+    /// Resolved language enum from `configuration.meetingLanguage`; falls back to English.
+    var effectiveMeetingLanguage: MeetingLanguage {
+        MeetingLanguage(rawValue: configuration.meetingLanguage) ?? .english
+    }
+
+    /// Pushes the current meeting language to both transcription services.
+    /// Call this after changing `configuration.meetingLanguage` or when a session starts.
+    func applyMeetingLanguageToTranscriptionServices() {
+        let lang = effectiveMeetingLanguage
+        speechTranscriptionService.setLocale(lang.appleSpeechLocale)
+        whisperCppTranscriptionService.setLanguage(lang.whisperCode)
+    }
+
     var privacyExecutionSummary: String {
         switch generationProvider {
         case .localHeuristic:
@@ -2379,6 +2445,7 @@ final class AppModel: ObservableObject {
     }
 
     private func startActiveTranscriptionProvider() {
+        applyMeetingLanguageToTranscriptionServices()
         switch transcriptionProvider {
         case .appleSpeech:
             speechTranscriptionService.start()
@@ -2759,7 +2826,8 @@ final class AppModel: ObservableObject {
             collaboratorRoleLabel: collaboratorRoleLabel,
             latestQuestion: latestQ,
             detectedIntent: intent.rawValue,
-            crossSessionMemory: memoryText
+            crossSessionMemory: memoryText,
+            meetingLanguage: configuration.meetingLanguage
         )
     }
 

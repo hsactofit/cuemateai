@@ -147,6 +147,12 @@ struct OllamaConversationService: Sendable {
 
         let participantLine = participantContext.isEmpty ? "\(other) (unknown contact)" : "\(other): \(participantContext)"
 
+        let langLine: String = {
+            let lang = MeetingLanguage(rawValue: request.meetingLanguage) ?? .english
+            if lang == .autoDetect || lang == .english { return "" }
+            return "Meeting language: \(lang.title). Respond in \(lang.title)."
+        }()
+
         var parts = [
             "You are a live meeting copilot. Respond like a calm, premium assistant in a high-pressure meeting.",
             "Keep the primary answer to 1-2 short sentences. Prefer clarity over completeness.",
@@ -154,6 +160,7 @@ struct OllamaConversationService: Sendable {
             "Participants: \(you) (user) | \(participantLine)",
             "Meeting type: \(request.configuration.meetingType) | tone: \(request.configuration.tone) | length: \(request.configuration.length) | level: \(request.configuration.userLevel)",
         ]
+        if !langLine.isEmpty { parts.append(langLine) }
         if !goalsSection.isEmpty { parts.append(""); parts.append(goalsSection) }
         if !memorySection.isEmpty { parts.append(""); parts.append(memorySection) }
         parts += [

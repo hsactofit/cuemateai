@@ -11,10 +11,20 @@ enum SpeechPermissionState: String, Sendable {
 
 @MainActor
 final class SpeechTranscriptionService {
-    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+    private var recognizer: SFSpeechRecognizer?
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
     var onTranscript: ((TranscriptSegment) -> Void)?
+
+    init() {
+        recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+    }
+
+    /// Swaps the locale before the next `start()` call.
+    func setLocale(_ locale: Locale) {
+        let newRecognizer = SFSpeechRecognizer(locale: locale)
+        recognizer = newRecognizer ?? SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+    }
 
     func requestPermission() async -> SpeechPermissionState {
         switch SFSpeechRecognizer.authorizationStatus() {

@@ -12,6 +12,8 @@ struct ConversationRequest: Sendable {
     let detectedIntent: String
     /// Cross-session memory note for recurring contacts or meeting types. Empty string when no history exists.
     let crossSessionMemory: String
+    /// BCP-47 language code for the meeting (e.g. "en", "es", "fr"). Used to instruct AI providers to respond in that language.
+    let meetingLanguage: String
 }
 
 struct ConversationResponse: Sendable {

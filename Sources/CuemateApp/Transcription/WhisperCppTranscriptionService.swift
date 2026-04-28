@@ -16,6 +16,7 @@ final class WhisperCppTranscriptionService {
     private var isRunning = false
     private var isTranscribing = false
     private var chunkIndex = 0
+    private var languageCode = "en"
 
     var onTranscript: ((TranscriptSegment) -> Void)?
 
@@ -32,6 +33,11 @@ final class WhisperCppTranscriptionService {
             return .missingModel
         }
         return .missingExecutable
+    }
+
+    /// Sets the whisper.cpp -l language code before the next `start()` call.
+    func setLanguage(_ code: String) {
+        languageCode = code.isEmpty ? "en" : code
     }
 
     func start() {
@@ -91,7 +97,7 @@ final class WhisperCppTranscriptionService {
                 executable,
                 "-m", modelPath,
                 "-f", audioURL.path,
-                "-l", "en",
+                "-l", languageCode,
                 "-otxt",
                 "-of", outputBaseURL.path
             ])

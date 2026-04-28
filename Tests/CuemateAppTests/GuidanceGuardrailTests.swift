@@ -66,7 +66,8 @@ final class GuidanceGuardrailTests: XCTestCase {
             collaboratorRoleLabel: collaborator,
             latestQuestion: latestQ,
             detectedIntent: intent,
-            crossSessionMemory: memory
+            crossSessionMemory: memory,
+            meetingLanguage: "en"
         )
     }
 

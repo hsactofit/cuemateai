@@ -13,11 +13,6 @@ All P0–P3 and the first P4 item (CM-BLG-110) are complete.
 
 ## P4 Future Differentiation
 
-### CM-BLG-111 `Multilingual meeting support`
-- Support multilingual transcription, context understanding, and response guidance.
-- Acceptance:
-  The product expands beyond English-only workflows.
-
 ### CM-BLG-113 `Screen and visual context awareness`
 - Add optional awareness of slides, shared screens, or on-screen context where platform capabilities allow.
 - Acceptance:
