@@ -19,6 +19,8 @@ struct MeetingConfiguration: Equatable, Sendable {
     var meetingGoal = ""
     var targetOutcome = ""
     var mustCoverPoints = ""
+    // CM-BLG-091: persisted answer style preference for style learning
+    var preferredAnswerStyle = ""
 }
 
 extension MeetingConfiguration: Codable {
@@ -26,24 +28,26 @@ extension MeetingConfiguration: Codable {
         case speakerName, meetingType, userLevel, tone, length, creativity, aiMode
         case participantName, participantCompany, relationshipStage, priorContextNote
         case meetingGoal, targetOutcome, mustCoverPoints
+        case preferredAnswerStyle
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        speakerName        = (try? c.decode(String.self, forKey: .speakerName))        ?? "Me"
-        meetingType        = (try? c.decode(String.self, forKey: .meetingType))        ?? "sales"
-        userLevel          = (try? c.decode(String.self, forKey: .userLevel))          ?? "beginner"
-        tone               = (try? c.decode(String.self, forKey: .tone))               ?? "confident"
-        length             = (try? c.decode(String.self, forKey: .length))             ?? "short"
-        creativity         = (try? c.decode(String.self, forKey: .creativity))         ?? "balanced"
-        aiMode             = (try? c.decode(String.self, forKey: .aiMode))             ?? "active"
-        participantName    = (try? c.decode(String.self, forKey: .participantName))    ?? ""
-        participantCompany = (try? c.decode(String.self, forKey: .participantCompany)) ?? ""
-        relationshipStage  = (try? c.decode(String.self, forKey: .relationshipStage))  ?? "new"
-        priorContextNote   = (try? c.decode(String.self, forKey: .priorContextNote))   ?? ""
-        meetingGoal        = (try? c.decode(String.self, forKey: .meetingGoal))        ?? ""
-        targetOutcome      = (try? c.decode(String.self, forKey: .targetOutcome))      ?? ""
-        mustCoverPoints    = (try? c.decode(String.self, forKey: .mustCoverPoints))    ?? ""
+        speakerName          = (try? c.decode(String.self, forKey: .speakerName))          ?? "Me"
+        meetingType          = (try? c.decode(String.self, forKey: .meetingType))          ?? "sales"
+        userLevel            = (try? c.decode(String.self, forKey: .userLevel))            ?? "beginner"
+        tone                 = (try? c.decode(String.self, forKey: .tone))                 ?? "confident"
+        length               = (try? c.decode(String.self, forKey: .length))               ?? "short"
+        creativity           = (try? c.decode(String.self, forKey: .creativity))           ?? "balanced"
+        aiMode               = (try? c.decode(String.self, forKey: .aiMode))               ?? "active"
+        participantName      = (try? c.decode(String.self, forKey: .participantName))      ?? ""
+        participantCompany   = (try? c.decode(String.self, forKey: .participantCompany))   ?? ""
+        relationshipStage    = (try? c.decode(String.self, forKey: .relationshipStage))    ?? "new"
+        priorContextNote     = (try? c.decode(String.self, forKey: .priorContextNote))     ?? ""
+        meetingGoal          = (try? c.decode(String.self, forKey: .meetingGoal))          ?? ""
+        targetOutcome        = (try? c.decode(String.self, forKey: .targetOutcome))        ?? ""
+        mustCoverPoints      = (try? c.decode(String.self, forKey: .mustCoverPoints))      ?? ""
+        preferredAnswerStyle = (try? c.decode(String.self, forKey: .preferredAnswerStyle)) ?? ""
     }
 }
 
@@ -1604,52 +1608,21 @@ final class AppModel: ObservableObject {
     }
 
     var recurringMemoryItems: [String] {
-        let priorSessions = meetingSessions
-            .filter { !$0.isActive && $0.configuration.meetingType == configuration.meetingType }
-            .prefix(4)
-
-        guard !priorSessions.isEmpty else {
+        let past = meetingSessions.filter { !$0.isActive }
+        let note = CrossSessionMemoryBuilder().build(for: configuration, from: past)
+        if note.isEmpty {
             return ["No recurring memory yet. Complete a few sessions to build continuity here."]
         }
+        return note.text.components(separatedBy: "\n").filter { !$0.isEmpty }
+    }
 
-        var items: [String] = []
-
-        if let lastSummary = priorSessions.compactMap(\.summary).first {
-            if !lastSummary.outcomeNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                items.append("Last outcome: \(lastSummary.outcomeNote)")
-            }
-            if let firstAction = lastSummary.actionItems.first, !firstAction.isEmpty {
-                items.append("Recent follow-through: \(firstAction)")
-            }
-        }
-
-        let topicCounts = Dictionary(grouping: priorSessions.flatMap { $0.summary?.keyTopics ?? [] }.map {
-            $0.trimmingCharacters(in: .whitespacesAndNewlines)
-        }.filter { !$0.isEmpty }, by: { $0 })
-            .mapValues(\.count)
-            .sorted { lhs, rhs in
-                if lhs.value == rhs.value {
-                    return lhs.key < rhs.key
-                }
-                return lhs.value > rhs.value
-            }
-            .prefix(3)
-            .map(\.key)
-
-        if !topicCounts.isEmpty {
-            items.append("Recurring themes: " + topicCounts.joined(separator: ", "))
-        }
-
-        let recurringRisks = priorSessions.compactMap { $0.summary?.decisionSummary }
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .prefix(1)
-
-        if let risk = recurringRisks.first {
-            items.append("Decision pattern: \(risk)")
-        }
-
-        return Array(items.prefix(3))
+    /// Suggested answer style based on past sessions of the same meeting type.
+    /// Returns nil when there is not enough history.
+    var suggestedAnswerStyle: String? {
+        CrossSessionMemoryBuilder().suggestedAnswerStyle(
+            meetingType: configuration.meetingType,
+            from: meetingSessions.filter { !$0.isActive }
+        )
     }
 
     var sessionDiagnosticsItems: [String] {
@@ -1968,6 +1941,9 @@ final class AppModel: ObservableObject {
     func startMeetingSession() {
         let trimmedTitle = sessionDraftTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         let title = trimmedTitle.isEmpty ? defaultSessionTitle(for: Date()) : trimmedTitle
+
+        // Stamp the current answer style preference so it can be used for style learning.
+        configuration.preferredAnswerStyle = confidenceMode
 
         if let existingIndex = meetingSessions.firstIndex(where: \.isActive) {
             meetingSessions[existingIndex].title = title
@@ -2670,6 +2646,9 @@ final class AppModel: ObservableObject {
             normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName)
         })
         let intent = detectIntent(from: latestQ?.text ?? latestTranscriptText)
+        let pastSessions = meetingSessions.filter { !$0.isActive }
+        let memoryBuilder = CrossSessionMemoryBuilder()
+        let memoryNote = memoryBuilder.build(for: configuration, from: pastSessions)
         return ConversationRequest(
             configuration: configuration,
             transcriptSegments: segments,
@@ -2677,7 +2656,8 @@ final class AppModel: ObservableObject {
             userDisplayName: userDisplayName,
             collaboratorRoleLabel: collaboratorRoleLabel,
             latestQuestion: latestQ,
-            detectedIntent: intent.rawValue
+            detectedIntent: intent.rawValue,
+            crossSessionMemory: memoryNote.text
         )
     }
 

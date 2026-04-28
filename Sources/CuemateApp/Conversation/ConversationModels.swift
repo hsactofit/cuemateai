@@ -10,6 +10,8 @@ struct ConversationRequest: Sendable {
     let latestQuestion: TranscriptSegment?
     /// Detected intent for the current moment (e.g. "pricing", "objection", "decision", "nextStep", "general").
     let detectedIntent: String
+    /// Cross-session memory note for recurring contacts or meeting types. Empty string when no history exists.
+    let crossSessionMemory: String
 }
 
 struct ConversationResponse: Sendable {

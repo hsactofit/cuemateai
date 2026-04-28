@@ -1,5 +1,19 @@
 # Updates Log
 
+## 2026-04-28 (CM-BLG-090 + CM-BLG-091 — cross-session memory and style learning)
+
+- Created `CrossSessionMemoryBuilder.swift` (new Support file):
+  - `build(for:from:) -> MemoryNote`: selects relevant past sessions by (1) matching participant name, (2) matching company, (3) matching meeting type — builds a multi-line memory note covering session count, last outcome, open commitments, recurring topics, and past objection signals.
+  - `suggestedAnswerStyle(meetingType:from:) -> String?`: returns the modal `preferredAnswerStyle` from completed sessions (same meeting type); requires ≥2 sessions to make a suggestion.
+- Added `crossSessionMemory: String` to `ConversationRequest`; populated in `liveConversationRequest()` via `CrossSessionMemoryBuilder`.
+- Added `preferredAnswerStyle: String` to `MeetingConfiguration` with backward-compatible decode; stamped from `confidenceMode` at session start in `startMeetingSession()`.
+- `recurringMemoryItems` in `AppModel` now delegates to `CrossSessionMemoryBuilder` (removed duplicated logic).
+- Added `suggestedAnswerStyle: String?` computed property on `AppModel`.
+- Both `OpenAIConversationService` and `OllamaConversationService` inject the memory note block into the prompt when non-empty.
+- `identityCard` in Settings shows a sparkle hint + "Apply" button when the suggested style differs from the current one.
+- Created `CrossSessionMemoryTests.swift` with 10 tests: empty history, participant-name match, company fallback, meeting-type fallback, outcome/topic/active-session exclusion, style learning edge cases, backward compat. Suite now 30 tests, all green.
+- Build verified clean, zero warnings.
+
 ## 2026-04-28 (CM-BLG-062 + CM-BLG-082 — meeting goals and outcome tracking)
 
 - Added `meetingGoal`, `targetOutcome`, `mustCoverPoints` to `MeetingConfiguration` with backward-compatible decode.

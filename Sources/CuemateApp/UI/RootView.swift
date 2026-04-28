@@ -892,6 +892,23 @@ struct SettingsWorkspaceView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
+                if let suggested = model.suggestedAnswerStyle, suggested != model.confidenceMode {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("Past sessions suggest \(suggested.capitalized). ")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("Apply") {
+                            model.confidenceMode = suggested
+                        }
+                        .font(.caption)
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.blue)
+                    }
+                }
+
                 Toggle("Click through overlay", isOn: Binding(
                     get: { model.clickThroughEnabled },
                     set: { model.setClickThrough($0) }

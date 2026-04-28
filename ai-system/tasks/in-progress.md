@@ -15,7 +15,8 @@
 
 ## Next Focus
 
-- **Run real-meeting validation**: the full prompt stack (role labels, context window, goals, participant context, intent-specific tactics) is in place. Run `.ai-system/testing/manual-beta-plan.md` and `.ai-system/testing/live-meeting-checklist.md` to surface any trust breaks.
-- `CM-BLG-090` Conversation memory: remember recurring contacts, objections, and commitments across sessions using the `sessionOutcome` + `participantName`/`participantCompany` now stored per session.
-- `CM-BLG-091` Personal response style memory: learn whether the user prefers shorter/safer/more-assertive answers over time.
-- `CM-BLG-052` Session auto-start suggestions: detect likely meeting start and prompt the user to start a session.
+- **Run real-meeting validation**: all P1/P2/P3 items are now built. Run `.ai-system/testing/manual-beta-plan.md` and `.ai-system/testing/live-meeting-checklist.md` against the full prompt stack.
+- `CM-BLG-052` Session auto-start suggestions: detect likely meeting start and suggest starting a session.
+- `CM-BLG-100` Compact why-this-answer hints: show a one-line explanation for why Cuemate suggested the answer.
+- `CM-BLG-101` Confidence scoring: surface a more visible confidence indicator so the user knows when to trust the answer vs. fall back.
+- `CM-BLG-103` Premium calm visual system: typography, spacing, and color refinement pass.

@@ -13,6 +13,8 @@
 - `CM-BLG-061` Contact and account context: added `participantName`, `participantCompany`, `relationshipStage`, `priorContextNote` to `MeetingConfiguration` with backward-compatible decoding. `participantContextLine` helper composes a one-line summary into both AI prompts. `meetingContextCard` UI in `StartSessionWorkspaceView`. 15 tests passing.
 - `CM-BLG-062` Meeting goals and success criteria: added `meetingGoal`, `targetOutcome`, `mustCoverPoints` to `MeetingConfiguration`; `meetingGoalsSection` injects them into both AI prompts; `meetingGoalsCard` UI in `StartSessionWorkspaceView`.
 - `CM-BLG-082` Outcome tracking: `SessionOutcome` enum (pilot/follow-up/blocked/internal-action/open-risk/unclear); auto-detection from summary signals in `saveSummaryResult`; manual override via `saveSessionOutcome`; outcome badge in session history list and detail header. 19 tests passing.
+- `CM-BLG-090` Conversation memory: `CrossSessionMemoryBuilder` selects relevant past sessions by participant name → company → meeting type, builds a multi-line memory note (outcome, open commitments, recurring topics, past objections), injected into both AI prompts via `ConversationRequest.crossSessionMemory`. `recurringMemoryItems` in AppModel delegates to the builder.
+- `CM-BLG-091` Personal response style memory: `preferredAnswerStyle` stamped onto `MeetingConfiguration` at session start; `suggestedAnswerStyle` computed from modal style in past sessions; "Apply" hint shown in Settings when suggestion differs from current. 30 tests passing.
 
 ## 2026-04-26 (Launch-readiness doc audit)
 

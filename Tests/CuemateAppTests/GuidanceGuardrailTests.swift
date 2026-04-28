@@ -50,21 +50,33 @@ final class GuidanceGuardrailTests: XCTestCase {
 
     // MARK: - ConversationRequest role labels (CM-BLG-031)
 
-    func testConversationRequestCarriesRoleLabels() {
-        let config = MeetingConfiguration()
-        let request = ConversationRequest(
-            configuration: config,
-            transcriptSegments: [],
+    private func makeRequest(
+        userDisplay: String = "Alice",
+        collaborator: String = "Prospect",
+        segments: [TranscriptSegment] = [],
+        latestQ: TranscriptSegment? = nil,
+        intent: String = "general",
+        memory: String = ""
+    ) -> ConversationRequest {
+        ConversationRequest(
+            configuration: MeetingConfiguration(),
+            transcriptSegments: segments,
             retrievalResults: [],
-            userDisplayName: "Alice",
-            collaboratorRoleLabel: "Prospect",
-            latestQuestion: nil,
-            detectedIntent: "general"
+            userDisplayName: userDisplay,
+            collaboratorRoleLabel: collaborator,
+            latestQuestion: latestQ,
+            detectedIntent: intent,
+            crossSessionMemory: memory
         )
+    }
+
+    func testConversationRequestCarriesRoleLabels() {
+        let request = makeRequest(userDisplay: "Alice", collaborator: "Prospect")
         XCTAssertEqual(request.userDisplayName, "Alice")
         XCTAssertEqual(request.collaboratorRoleLabel, "Prospect")
         XCTAssertNil(request.latestQuestion)
         XCTAssertEqual(request.detectedIntent, "general")
+        XCTAssertTrue(request.crossSessionMemory.isEmpty)
     }
 
     // MARK: - ConversationRequest context window (CM-BLG-033)
@@ -72,14 +84,10 @@ final class GuidanceGuardrailTests: XCTestCase {
     func testConversationRequestLatestQuestionPointsToOtherSpeaker() {
         let userSeg = makeSegment(text: "We have strong ROI data.", speaker: "Alice")
         let otherSeg = makeSegment(text: "What is the timeline?", speaker: "Prospect")
-        let request = ConversationRequest(
-            configuration: MeetingConfiguration(),
-            transcriptSegments: [otherSeg, userSeg],
-            retrievalResults: [],
-            userDisplayName: "Alice",
-            collaboratorRoleLabel: "Prospect",
-            latestQuestion: otherSeg,
-            detectedIntent: "nextStep"
+        let request = makeRequest(
+            segments: [otherSeg, userSeg],
+            latestQ: otherSeg,
+            intent: "nextStep"
         )
         XCTAssertEqual(request.latestQuestion?.text, "What is the timeline?")
         XCTAssertEqual(request.transcriptSegments.count, 2)
@@ -88,16 +96,14 @@ final class GuidanceGuardrailTests: XCTestCase {
 
     func testConversationRequestWithNoOtherSpeakerHasNilLatestQuestion() {
         let userSeg = makeSegment(text: "Let me walk you through the demo.", speaker: "Alice")
-        let request = ConversationRequest(
-            configuration: MeetingConfiguration(),
-            transcriptSegments: [userSeg],
-            retrievalResults: [],
-            userDisplayName: "Alice",
-            collaboratorRoleLabel: "Prospect",
-            latestQuestion: nil,
-            detectedIntent: "general"
-        )
+        let request = makeRequest(segments: [userSeg])
         XCTAssertNil(request.latestQuestion)
+    }
+
+    func testConversationRequestCrossSessionMemoryPassThrough() {
+        let memoryNote = "Prior history (Sarah): 2 sessions\nLast outcome: Pilot"
+        let request = makeRequest(memory: memoryNote)
+        XCTAssertEqual(request.crossSessionMemory, memoryNote)
     }
 
     // MARK: - MeetingConfiguration backward compat (CM-BLG-061)

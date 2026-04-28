@@ -78,6 +78,7 @@ struct OpenAIConversationService: Sendable {
         let modeGuidance = modeHelper.systemPromptSection(for: request.configuration.meetingType, intent: request.detectedIntent)
         let participantContext = modeHelper.participantContextLine(for: request.configuration)
         let goalsSection = modeHelper.meetingGoalsSection(for: request.configuration)
+        let memorySection = request.crossSessionMemory
 
         let latestQ = request.latestQuestion.map { seg in
             "\(other): \(seg.text.trimmingCharacters(in: .whitespacesAndNewlines))"
@@ -104,6 +105,7 @@ struct OpenAIConversationService: Sendable {
             "Meeting type: \(request.configuration.meetingType) | tone: \(request.configuration.tone) | length: \(request.configuration.length) | level: \(request.configuration.userLevel)",
         ]
         if !goalsSection.isEmpty { parts.append(""); parts.append(goalsSection) }
+        if !memorySection.isEmpty { parts.append(""); parts.append(memorySection) }
         parts += [
             "",
             "Latest statement/question to respond to:",
