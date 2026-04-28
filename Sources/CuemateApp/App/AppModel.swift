@@ -528,6 +528,9 @@ final class AppModel: ObservableObject {
     @Published var excludedFromMemoryIDs: Set<UUID> = [] {
         didSet { persistState() }
     }
+    @Published var offlineModeEnabled = false {
+        didSet { persistState() }
+    }
     @Published var importedDocuments: [IngestedDocument] = []
     @Published var lastImportedChunkCount = 0
     @Published var retrievalQuery = ""
@@ -1664,6 +1667,11 @@ final class AppModel: ObservableObject {
         sessionDiagnostics.displayItems
     }
 
+    /// The active generation provider, overridden to `.localHeuristic` when offline mode is on.
+    var effectiveGenerationProvider: GenerationProvider {
+        offlineModeEnabled ? .localHeuristic : generationProvider
+    }
+
     var privacyExecutionSummary: String {
         switch generationProvider {
         case .localHeuristic:
@@ -1765,10 +1773,10 @@ final class AppModel: ObservableObject {
         let confidence = guidanceConfidenceLevel(for: request)
 
         let response: ConversationResponse
-        switch generationProvider {
+        switch effectiveGenerationProvider {
         case .localHeuristic:
             response = conversationEngine.generate(request: request)
-            providerStatusMessage = "Using local heuristic guidance"
+            providerStatusMessage = offlineModeEnabled ? "Offline mode — local heuristic guidance" : "Using local heuristic guidance"
             streamingResponsePreview = response.primary
         case .openAI:
             guard let apiKey = ((try? keychainStore.load(account: "openai_api_key")) ?? nil), !apiKey.isEmpty else {
@@ -2232,6 +2240,7 @@ final class AppModel: ObservableObject {
             autoResponseEnabled = state.autoResponseEnabled
             memoryEnabled = state.memoryEnabled
             excludedFromMemoryIDs = Set(state.excludedFromMemoryIDs.compactMap(UUID.init))
+            offlineModeEnabled = state.offlineModeEnabled
             appendLog("Loaded saved local configuration")
         } catch {
             appendLog("Using default local configuration")
@@ -2254,7 +2263,8 @@ final class AppModel: ObservableObject {
             generationProvider: generationProvider,
             autoResponseEnabled: autoResponseEnabled,
             memoryEnabled: memoryEnabled,
-            excludedFromMemoryIDs: excludedFromMemoryIDs.map(\.uuidString)
+            excludedFromMemoryIDs: excludedFromMemoryIDs.map(\.uuidString),
+            offlineModeEnabled: offlineModeEnabled
         )
 
         do {
@@ -2523,7 +2533,7 @@ final class AppModel: ObservableObject {
     }
 
     private func selectedBriefGenerationStrategy() -> BriefGenerationStrategy {
-        switch generationProvider {
+        switch effectiveGenerationProvider {
         case .ollama:
             return .ollama(model: "qwen3:4b")
         case .openAI:

@@ -1,5 +1,9 @@
 # Completed
 
+## 2026-04-28 (offline-capable mode)
+
+- `CM-BLG-112` Offline-capable mode: `AppState` gains `offlineModeEnabled` with backward-compatible decode defaulting to false. `AppModel` exposes `@Published var offlineModeEnabled` (persisted) and `effectiveGenerationProvider` (returns `.localHeuristic` when offline mode is on, otherwise the user-selected provider). `generateConversationGuidance()` and `selectedBriefGenerationStrategy()` now branch on `effectiveGenerationProvider` instead of `generationProvider` directly, so switching offline mode instantly overrides the active provider without changing the user's preference. Settings gains an "Offline Mode" card with a toggle, a four-row capability breakdown showing what stays available offline, and a contextual info note when active. Top bar gains an orange "Offline" capsule badge when offline mode is enabled. 7 new tests (persistence round-trip, backward-compat decode, override logic), 51 total passing.
+
 ## 2026-04-28 (autonomous background help)
 
 - `CM-BLG-110` Autonomous background help: `backgroundTaskLabel` (@Published) is set during `generateBriefForSession` and shown in the top bar as a ProgressView pill. `pendingFollowUpSessions` detects completed sessions (≤30 days old) with action items and no follow-up notes. `markFollowUpDone(for:)` sets `followUpNotes = "Handled"` as completion signal. HistoryWorkspaceView gains a "Needs Attention" card with Open and Mark Done per-row actions. 8 new tests, 47 total passing.

@@ -18,11 +18,6 @@ All P0–P3 and the first P4 item (CM-BLG-110) are complete.
 - Acceptance:
   The product expands beyond English-only workflows.
 
-### CM-BLG-112 `Offline-capable mode`
-- Strengthen the fully local path for sensitive workflows and unreliable network situations.
-- Acceptance:
-  Cuemate remains viable in privacy-sensitive or offline settings.
-
 ### CM-BLG-113 `Screen and visual context awareness`
 - Add optional awareness of slides, shared screens, or on-screen context where platform capabilities allow.
 - Acceptance:

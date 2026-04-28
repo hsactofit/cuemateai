@@ -41,6 +41,19 @@ struct RootView: View {
 
             Spacer()
 
+            if model.offlineModeEnabled {
+                HStack(spacing: 5) {
+                    Image(systemName: "wifi.slash")
+                        .font(.caption.weight(.semibold))
+                    Text("Offline")
+                        .font(.caption.weight(.semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Capsule(style: .continuous).fill(Color.orange))
+            }
+
             if !model.backgroundTaskLabel.isEmpty {
                 HStack(spacing: 6) {
                     ProgressView()
@@ -848,6 +861,7 @@ struct SettingsWorkspaceView: View {
                     setupReadinessCard
                     setupCard
                     providerCard
+                    offlineModeCard
                     privacyCard
                     memoryControlsCard
                 }
@@ -997,6 +1011,70 @@ struct SettingsWorkspaceView: View {
                         .buttonStyle(.bordered)
                     }
                 }
+            }
+        }
+    }
+
+    private var offlineModeCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Offline Mode")
+                            .font(.title3.weight(.semibold))
+                        Text("Forces all generation to the local heuristic engine regardless of provider selection.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: $model.offlineModeEnabled)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    offlineModeCapabilityRow(icon: "checkmark.circle.fill", color: .green,
+                        label: "Live guidance", note: "Always available — local heuristic")
+                    offlineModeCapabilityRow(icon: "checkmark.circle.fill", color: .green,
+                        label: "Transcription", note: "Apple Speech or whisper.cpp")
+                    offlineModeCapabilityRow(icon: "checkmark.circle.fill", color: .green,
+                        label: "Session history & memory", note: "Fully local")
+                    offlineModeCapabilityRow(
+                        icon: model.offlineModeEnabled ? "xmark.circle.fill" : "checkmark.circle.fill",
+                        color: model.offlineModeEnabled ? .secondary : .green,
+                        label: "AI brief generation",
+                        note: model.offlineModeEnabled ? "Paused in offline mode" : "Available with OpenAI or Ollama"
+                    )
+                }
+
+                if model.offlineModeEnabled {
+                    HStack(spacing: 6) {
+                        Image(systemName: "info.circle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("Offline mode is on. Brief generation uses heuristic templates only. Turn it off to re-enable cloud providers.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+    }
+
+    private func offlineModeCapabilityRow(icon: String, color: Color, label: String, note: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .foregroundStyle(color)
+                .font(.caption)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label)
+                    .font(.caption.weight(.medium))
+                Text(note)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
         }
     }
