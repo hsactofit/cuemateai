@@ -320,6 +320,51 @@ struct StartSessionWorkspaceView: View {
                     Spacer()
                 }
 
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Meeting Flow")
+                        .font(.subheadline.weight(.semibold))
+
+                    HStack(spacing: 10) {
+                        meetingFlowButton(title: "Remote", active: model.effectiveMeetingCaptureMode == .remote) {
+                            model.setMeetingCaptureMode(.remote)
+                        }
+
+                        Button(action: {}) {
+                            HStack(spacing: 6) {
+                                Text("In-Person")
+                                Text("Later")
+                                    .font(.caption2.weight(.bold))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(
+                                        Capsule(style: .continuous)
+                                            .fill(Color.orange.opacity(0.16))
+                                    )
+                            }
+                            .font(.subheadline.weight(.semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(Color(nsColor: .controlBackgroundColor))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                            )
+                            .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(true)
+                    }
+
+                    Text(model.meetingCaptureModeSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Divider()
+
                 HStack(spacing: 10) {
                     TextField("Participant name", text: $model.configuration.participantName)
                         .textFieldStyle(.roundedBorder)
@@ -371,6 +416,25 @@ struct StartSessionWorkspaceView: View {
                 }
             }
         }
+    }
+
+    private func meetingFlowButton(title: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(active ? Color.accentColor.opacity(0.14) : Color(nsColor: .controlBackgroundColor))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(active ? Color.accentColor.opacity(0.35) : Color.black.opacity(0.06), lineWidth: 1)
+                )
+                .foregroundStyle(active ? Color.accentColor : Color.primary)
+        }
+        .buttonStyle(.plain)
     }
 
     private func calendarEventRow(_ event: CalendarEventRecord) -> some View {
@@ -1191,6 +1255,19 @@ struct SettingsWorkspaceView: View {
 
                 TextField("Your name", text: $model.configuration.speakerName)
                     .textFieldStyle(.roundedBorder)
+
+                HStack {
+                    Text("Meeting flow")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(model.effectiveMeetingCaptureMode.title)
+                        .font(.caption.weight(.semibold))
+                }
+
+                Text("Remote mode is active. In-person capture is intentionally disabled until room capture is ready.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 Picker("Meeting type", selection: $model.configuration.meetingType) {
                     ForEach(MeetingMode.allCases) { mode in

@@ -1,6 +1,29 @@
 import Foundation
 import SwiftUI
 
+enum MeetingCaptureMode: String, CaseIterable, Codable, Sendable, Identifiable {
+    case remote
+    case inPerson = "in-person"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .remote: "Remote"
+        case .inPerson: "In-Person"
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .remote:
+            "Built for laptop calls. Use your mic for you and a system-audio source for the other side."
+        case .inPerson:
+            "Coming later. Room capture and multi-speaker handling are not ready yet."
+        }
+    }
+}
+
 enum MeetingLanguage: String, CaseIterable, Codable, Sendable, Identifiable {
     case autoDetect = "auto"
     case english    = "en"
@@ -52,6 +75,7 @@ enum MeetingLanguage: String, CaseIterable, Codable, Sendable, Identifiable {
 
 struct MeetingConfiguration: Equatable, Sendable {
     var speakerName = "Me"
+    var meetingCaptureMode = "remote"
     var meetingType = "sales"
     var userLevel = "beginner"
     var tone = "confident"
@@ -76,7 +100,7 @@ struct MeetingConfiguration: Equatable, Sendable {
 
 extension MeetingConfiguration: Codable {
     enum CodingKeys: String, CodingKey {
-        case speakerName, meetingType, userLevel, tone, length, creativity, aiMode
+        case speakerName, meetingCaptureMode, meetingType, userLevel, tone, length, creativity, aiMode
         case participantName, participantCompany, relationshipStage, priorContextNote
         case meetingGoal, targetOutcome, mustCoverPoints
         case preferredAnswerStyle
@@ -86,6 +110,7 @@ extension MeetingConfiguration: Codable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         speakerName          = (try? c.decode(String.self, forKey: .speakerName))          ?? "Me"
+        meetingCaptureMode   = (try? c.decode(String.self, forKey: .meetingCaptureMode))   ?? "remote"
         meetingType          = (try? c.decode(String.self, forKey: .meetingType))          ?? "sales"
         userLevel            = (try? c.decode(String.self, forKey: .userLevel))            ?? "beginner"
         tone                 = (try? c.decode(String.self, forKey: .tone))                 ?? "confident"
@@ -400,13 +425,13 @@ enum ConversationAction: String, CaseIterable, Identifiable {
 
     var shortcutLabel: String {
         switch self {
-        case .toggleOverlay: "Cmd + Shift + H"
-        case .pauseResume: "Cmd + P"
-        case .nextSuggestion: "Cmd + Right Arrow"
-        case .shorten: "Cmd + S"
-        case .expand: "Cmd + L"
-        case .moreConfident: "Cmd + C"
-        case .regenerate: "Cmd + R"
+        case .toggleOverlay: "Control + Option + H"
+        case .pauseResume: "Control + Option + P"
+        case .nextSuggestion: "Control + Option + Right Arrow"
+        case .shorten: "Control + Option + S"
+        case .expand: "Control + Option + L"
+        case .moreConfident: "Control + Option + C"
+        case .regenerate: "Control + Option + R"
         }
     }
 }
@@ -1749,12 +1774,29 @@ final class AppModel: ObservableObject {
         MeetingLanguage(rawValue: configuration.meetingLanguage) ?? .english
     }
 
+    var effectiveMeetingCaptureMode: MeetingCaptureMode {
+        MeetingCaptureMode(rawValue: configuration.meetingCaptureMode) ?? .remote
+    }
+
+    var meetingCaptureModeSummary: String {
+        effectiveMeetingCaptureMode.summary
+    }
+
     /// Pushes the current meeting language to both transcription services.
     /// Call this after changing `configuration.meetingLanguage` or when a session starts.
     func applyMeetingLanguageToTranscriptionServices() {
         let lang = effectiveMeetingLanguage
         speechTranscriptionService.setLocale(lang.appleSpeechLocale)
         whisperCppTranscriptionService.setLanguage(lang.whisperCode)
+    }
+
+    func setMeetingCaptureMode(_ mode: MeetingCaptureMode) {
+        configuration.meetingCaptureMode = mode == .remote ? mode.rawValue : MeetingCaptureMode.remote.rawValue
+        if mode == .remote {
+            providerStatusMessage = "Remote meeting flow active"
+        } else {
+            providerStatusMessage = "In-person meeting flow is not available yet"
+        }
     }
 
     // MARK: - Screen context
@@ -1765,10 +1807,15 @@ final class AppModel: ObservableObject {
 
     func requestScreenPermission() {
         screenContextService.requestPermission()
-        // Re-check after a short delay to pick up the result of the dialog.
+        providerStatusMessage = "Grant Screen Recording in System Settings, then return to Cuemate."
+        // Re-check after a short delay; if still blocked, open the right Settings screen.
         Task {
-            try? await Task.sleep(for: .seconds(1))
-            screenPermissionGranted = screenContextService.hasPermission()
+            try? await Task.sleep(for: .seconds(1.2))
+            let granted = screenContextService.hasPermission()
+            screenPermissionGranted = granted
+            if !granted {
+                screenContextService.openScreenRecordingSettings()
+            }
         }
     }
 
@@ -2424,6 +2471,9 @@ final class AppModel: ObservableObject {
         do {
             let state = try configStore.load()
             configuration = state.configuration
+            if MeetingCaptureMode(rawValue: configuration.meetingCaptureMode) != .remote {
+                configuration.meetingCaptureMode = MeetingCaptureMode.remote.rawValue
+            }
             overlayContent = state.overlayContent
             clickThroughEnabled = state.clickThroughEnabled
             isPaused = state.isPaused
@@ -2591,7 +2641,21 @@ final class AppModel: ObservableObject {
     }
 
     private func applyTranscriptSegment(_ segment: TranscriptSegment) {
-        let segment = normalizedTranscriptSegment(segment)
+        guard let sanitizedText = TranscriptSanitizer.normalizedText(segment.text) else {
+            latestTranscriptText = ""
+            liveResponseState = "Listening for clear audio"
+            return
+        }
+
+        let sanitizedSegment = TranscriptSegment(
+            id: segment.id,
+            speaker: segment.speaker,
+            text: sanitizedText,
+            confidence: segment.confidence,
+            isFinal: segment.isFinal,
+            createdAt: segment.createdAt
+        )
+        let segment = normalizedTranscriptSegment(sanitizedSegment)
         if let start = lastAudioActivityTimestamp {
             let elapsed = Date().timeIntervalSince(start) * 1000
             recordPerformance(name: "transcription", durationMs: elapsed, budgetMs: PerformanceBudget.transcriptionUpdateMs)

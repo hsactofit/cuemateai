@@ -69,10 +69,13 @@ final class SpeechTranscriptionService {
             guard let self else { return }
 
             if let result {
+                guard let transcriptText = TranscriptSanitizer.normalizedText(result.bestTranscription.formattedString) else {
+                    return
+                }
                 let segment = TranscriptSegment(
                     id: UUID(),
                     speaker: "user",
-                    text: result.bestTranscription.formattedString,
+                    text: transcriptText,
                     confidence: result.isFinal ? 0.95 : 0.7,
                     isFinal: result.isFinal,
                     createdAt: Date()

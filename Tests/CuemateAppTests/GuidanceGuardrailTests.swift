@@ -118,10 +118,23 @@ final class GuidanceGuardrailTests: XCTestCase {
         """
         let config = try JSONDecoder().decode(MeetingConfiguration.self, from: Data(json.utf8))
         XCTAssertEqual(config.speakerName, "Alice")
+        XCTAssertEqual(config.meetingCaptureMode, "remote")
         XCTAssertEqual(config.participantName, "")
         XCTAssertEqual(config.participantCompany, "")
         XCTAssertEqual(config.relationshipStage, "new")
         XCTAssertEqual(config.priorContextNote, "")
+    }
+
+    func testTranscriptSanitizerDropsBlankAudioMarker() {
+        XCTAssertNil(TranscriptSanitizer.normalizedText("[BLANK_AUDIO]"))
+        XCTAssertNil(TranscriptSanitizer.normalizedText("[BLANK_AUDO]"))
+    }
+
+    func testTranscriptSanitizerCollapsesWhitespace() {
+        XCTAssertEqual(
+            TranscriptSanitizer.normalizedText("  what   is \n the timeline? "),
+            "what is the timeline?"
+        )
     }
 
     func testParticipantContextLineWithFullContext() {

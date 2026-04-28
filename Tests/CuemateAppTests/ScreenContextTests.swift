@@ -68,15 +68,13 @@ final class ScreenContextTests: XCTestCase {
     func testScreenContextOmittedFromRequestWhenDisabled() {
         // Simulate effectiveScreenContext: disabled → always empty even if text exists
         let storedText = "Some slide content"
-        let screenContextEnabled = false
-        let effective = screenContextEnabled ? storedText : ""
+        let effective = effectiveScreenContext(enabled: false, storedText: storedText)
         XCTAssertTrue(effective.isEmpty)
     }
 
     func testScreenContextIncludedWhenEnabled() {
         let storedText = "Q3 targets: $10M ARR, 95% NRR"
-        let screenContextEnabled = true
-        let effective = screenContextEnabled ? storedText : ""
+        let effective = effectiveScreenContext(enabled: true, storedText: storedText)
         XCTAssertEqual(effective, storedText)
     }
 
@@ -120,5 +118,9 @@ final class ScreenContextTests: XCTestCase {
             screenContextEnabled: screenContextEnabled,
             activePlaybookID: ""
         )
+    }
+
+    private func effectiveScreenContext(enabled: Bool, storedText: String) -> String {
+        enabled ? storedText : ""
     }
 }

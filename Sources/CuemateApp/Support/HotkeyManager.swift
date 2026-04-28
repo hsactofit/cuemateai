@@ -89,13 +89,13 @@ private struct HotkeyBinding {
     }
 
     static let defaultBindings: [HotkeyBinding] = [
-        HotkeyBinding(action: .toggleOverlay, keyCode: kVK_ANSI_H, modifiers: UInt32(cmdKey | shiftKey)),
-        HotkeyBinding(action: .pauseResume, keyCode: kVK_ANSI_P, modifiers: UInt32(cmdKey)),
-        HotkeyBinding(action: .nextSuggestion, keyCode: kVK_RightArrow, modifiers: UInt32(cmdKey)),
-        HotkeyBinding(action: .shorten, keyCode: kVK_ANSI_S, modifiers: UInt32(cmdKey)),
-        HotkeyBinding(action: .expand, keyCode: kVK_ANSI_L, modifiers: UInt32(cmdKey)),
-        HotkeyBinding(action: .moreConfident, keyCode: kVK_ANSI_C, modifiers: UInt32(cmdKey)),
-        HotkeyBinding(action: .regenerate, keyCode: kVK_ANSI_R, modifiers: UInt32(cmdKey))
+        HotkeyBinding(action: .toggleOverlay, keyCode: kVK_ANSI_H, modifiers: UInt32(controlKey | optionKey)),
+        HotkeyBinding(action: .pauseResume, keyCode: kVK_ANSI_P, modifiers: UInt32(controlKey | optionKey)),
+        HotkeyBinding(action: .nextSuggestion, keyCode: kVK_RightArrow, modifiers: UInt32(controlKey | optionKey)),
+        HotkeyBinding(action: .shorten, keyCode: kVK_ANSI_S, modifiers: UInt32(controlKey | optionKey)),
+        HotkeyBinding(action: .expand, keyCode: kVK_ANSI_L, modifiers: UInt32(controlKey | optionKey)),
+        HotkeyBinding(action: .moreConfident, keyCode: kVK_ANSI_C, modifiers: UInt32(controlKey | optionKey)),
+        HotkeyBinding(action: .regenerate, keyCode: kVK_ANSI_R, modifiers: UInt32(controlKey | optionKey))
     ]
 
     static func action(for index: Int) -> ConversationAction? {

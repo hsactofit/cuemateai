@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 import Vision
@@ -22,6 +23,13 @@ final class ScreenContextService {
     /// The user must grant access in System Settings; there is no programmatic approval.
     func requestPermission() {
         CGRequestScreenCaptureAccess()
+    }
+
+    func openScreenRecordingSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") else {
+            return
+        }
+        NSWorkspace.shared.open(url)
     }
 
     // MARK: - Capture

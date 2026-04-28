@@ -57,7 +57,7 @@ final class WhisperCppTranscriptionService {
 
         bufferedSamples.append(contentsOf: UnsafeBufferPointer(start: channel, count: frameLength))
 
-        let minimumChunkFrameCount = Int(sampleRate * 3.0)
+        let minimumChunkFrameCount = Int(sampleRate * 1.2)
         guard bufferedSamples.count >= minimumChunkFrameCount, !isTranscribing else { return }
 
         let chunkSamples = bufferedSamples
@@ -103,16 +103,14 @@ final class WhisperCppTranscriptionService {
             ])
 
             let transcript = try String(contentsOf: textURL, encoding: .utf8)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-
-            guard !transcript.isEmpty else { return }
+            guard let cleanedTranscript = TranscriptSanitizer.normalizedText(transcript) else { return }
 
             await MainActor.run {
                 self.onTranscript?(
                     TranscriptSegment(
                         id: UUID(),
                         speaker: "user",
-                        text: transcript,
+                        text: cleanedTranscript,
                         confidence: 0.76,
                         isFinal: true,
                         createdAt: Date()

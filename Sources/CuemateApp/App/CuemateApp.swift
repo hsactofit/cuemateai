@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 @main
@@ -14,6 +15,9 @@ struct CuemateApp: App {
                 }
                 .task {
                     await hotkeyManager.bind(model: model)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                    model.checkScreenPermission()
                 }
         }
 
