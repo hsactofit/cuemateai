@@ -41,6 +41,23 @@ struct RootView: View {
 
             Spacer()
 
+            if !model.backgroundTaskLabel.isEmpty {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .scaleEffect(0.65)
+                        .frame(width: 14, height: 14)
+                    Text(model.backgroundTaskLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                )
+            }
+
             HStack(spacing: 8) {
                 navPill(for: .live, icon: "play.circle.fill")
                 navPill(for: .review, icon: "clock.arrow.circlepath")
@@ -720,6 +737,10 @@ struct HistoryWorkspaceView: View {
                 subtitle: "Every saved session keeps the transcript, live guidance, and post-meeting summary in one place."
             )
 
+            if !model.pendingFollowUpSessions.isEmpty {
+                needsAttentionCard
+            }
+
             SurfaceCard {
                 if model.historyState.sessions.isEmpty {
                     EmptyStateCard(text: "No saved sessions yet.")
@@ -732,6 +753,80 @@ struct HistoryWorkspaceView: View {
                 }
             }
         }
+    }
+
+    private var needsAttentionCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    HStack(spacing: 8) {
+                        Image(systemName: "bell.badge.fill")
+                            .foregroundStyle(.orange)
+                        Text("Needs Attention")
+                            .font(.title3.weight(.semibold))
+                    }
+                    Spacer()
+                    Text("\(model.pendingFollowUpSessions.count) pending")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+
+                ForEach(model.pendingFollowUpSessions) { session in
+                    pendingFollowUpRow(session)
+                }
+            }
+        }
+    }
+
+    private func pendingFollowUpRow(_ session: MeetingSessionRecord) -> some View {
+        let itemCount = session.summary?.actionItems.count ?? 0
+        return HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(session.title)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    if let endedAt = session.endedAt {
+                        Text(RelativeDateTimeFormatter().localizedString(for: endedAt, relativeTo: Date()))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("·")
+                        .foregroundStyle(.tertiary)
+                        .font(.caption)
+                    Text("\(itemCount) action item\(itemCount == 1 ? "" : "s")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            HStack(spacing: 8) {
+                Button("Open") {
+                    model.selectSession(session.id)
+                }
+                .font(.caption.weight(.semibold))
+                .buttonStyle(.borderless)
+                .foregroundStyle(Color.accentColor)
+
+                Button("Mark Done") {
+                    model.markFollowUpDone(for: session.id)
+                }
+                .font(.caption.weight(.semibold))
+                .buttonStyle(.borderless)
+                .foregroundStyle(Color.secondary)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.orange.opacity(0.06))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.orange.opacity(0.15), lineWidth: 1)
+        )
     }
 }
 

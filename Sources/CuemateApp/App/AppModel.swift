@@ -567,6 +567,7 @@ final class AppModel: ObservableObject {
     @Published var historyState = HistoryState(sessions: [], documents: [])
     @Published var sessionDiagnostics = SessionDiagnostics()
     @Published var showAutoStartSuggestion = false
+    @Published var backgroundTaskLabel = ""
 
     let appPaths: AppPaths
 
@@ -2071,6 +2072,30 @@ final class AppModel: ObservableObject {
         saveMeetingSessions()
     }
 
+    func markFollowUpDone(for sessionID: UUID) {
+        guard let index = meetingSessions.firstIndex(where: { $0.id == sessionID }) else { return }
+        if meetingSessions[index].followUpNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            meetingSessions[index].followUpNotes = "Handled"
+        }
+        saveMeetingSessions()
+    }
+
+    /// Completed sessions from the last 30 days that have action items but no follow-up notes recorded.
+    var pendingFollowUpSessions: [MeetingSessionRecord] {
+        let cutoff = Date(timeIntervalSinceNow: -30 * 86400)
+        return meetingSessions.filter { session in
+            guard !session.isActive,
+                  let endedAt = session.endedAt,
+                  endedAt > cutoff,
+                  session.followUpNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  let items = session.summary?.actionItems,
+                  !items.isEmpty
+            else { return false }
+            return true
+        }
+        .sorted { ($0.endedAt ?? $0.startedAt) > ($1.endedAt ?? $1.startedAt) }
+    }
+
     private func loadDocumentLibrary() {
         do {
             let library = try documentIngestion.loadExistingLibrary()
@@ -2458,6 +2483,9 @@ final class AppModel: ObservableObject {
     }
 
     private func generateBriefForSession(sessionID: UUID) async {
+        backgroundTaskLabel = "Preparing brief…"
+        defer { backgroundTaskLabel = "" }
+
         let snapshot = loadDocumentSnapshot()
         let input = BriefCoordinator.Input(
             configuration: configuration,
