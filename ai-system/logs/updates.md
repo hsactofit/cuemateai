@@ -1,5 +1,18 @@
 # Updates Log
 
+## 2026-04-28 (CM-BLG-031 + CM-BLG-033 — role-aware speaker labeling and context window shaping)
+
+- Added `userDisplayName`, `collaboratorRoleLabel`, and `latestQuestion` fields to `ConversationRequest` so AI services know who's who and which segment to respond to.
+- Updated `liveConversationRequest()` in AppModel to populate the new fields: `collaboratorRoleLabel` from the existing `collaboratorRoleLabel` computed property, `latestQuestion` as the most recent final segment from the non-user speaker.
+- Simplified `currentConfidenceAssessment` to delegate to `liveConversationRequest()` (removed a duplicate inline `ConversationRequest` construction).
+- Restructured `buildPrompt` in `OpenAIConversationService` and `OllamaConversationService`:
+  - Transcript now shows speaker-labeled lines (`Prospect: What's the ROI?` / `Alice: We saw 3x gains.`) instead of raw unlabeled text.
+  - Prompt is split into "Latest statement/question to respond to" (the `latestQuestion` segment) and "Prior context (recent turns)" (remaining segments, filtered to 3 max).
+  - Retrieval sources trimmed to 2 most relevant (down from 3/6) to keep the prompt tight.
+  - Meeting type, tone, length, and level all inline on one line instead of a multi-line block.
+- Added 3 new tests in `GuidanceGuardrailTests` covering `ConversationRequest` role labels and context window structure. Suite now has 9 tests, all green.
+- Build verified clean, zero warnings.
+
 ## 2026-04-28 (CM-BLG-001 + CM-BLG-014 — testing foundation and live reliability guardrails)
 
 - Converted `MeetingSessionStoreTests.swift` from Swift Testing (`import Testing`) to XCTest (`import XCTest`) to fix `no such module 'Testing'` under the Command Line Tools toolchain. Tests pass with `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test`.

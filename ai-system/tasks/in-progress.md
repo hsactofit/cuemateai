@@ -15,7 +15,7 @@
 
 ## Next Focus
 
-- `CM-BLG-031` Role-aware speaker labeling: evolve `You` / `Other` into role labels (`Prospect`, `Client`, `Interviewer`, etc.) so guidance can reference the right participant.
-- `CM-BLG-033` Context window shaping: build a better live context window (latest question + 1–2 prior turns + retrieved knowledge) instead of relying on the full raw transcript.
-- Run `.ai-system/testing/manual-beta-plan.md` and `.ai-system/testing/live-meeting-checklist.md` against the updated guardrails.
-- Decide whether to continue with `CM-BLG-041` (sales specialization) or `CM-BLG-052` (session auto-start) after speaker/context work.
+- `CM-BLG-041` Sales call specialization: objection handling, pricing moments, next-step framing, and pilot framing tuned for sales mode. The role/context foundation is now in place to make this impactful.
+- `CM-BLG-043` Interview support specialization: connect-to-outcomes framing, STAR structure, and concise-answer coaching for interview mode.
+- Run `.ai-system/testing/manual-beta-plan.md` and `.ai-system/testing/live-meeting-checklist.md` against the updated role/context prompt structure to verify guidance quality in real scenarios.
+- Consider `CM-BLG-052` (session auto-start suggestions) after role-specific specialization is solid.

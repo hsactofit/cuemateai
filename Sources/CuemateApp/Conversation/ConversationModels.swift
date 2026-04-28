@@ -4,6 +4,10 @@ struct ConversationRequest: Sendable {
     let configuration: MeetingConfiguration
     let transcriptSegments: [TranscriptSegment]
     let retrievalResults: [RetrievalSearchResult]
+    let userDisplayName: String
+    let collaboratorRoleLabel: String
+    /// The most recent final segment from the other speaker — the statement/question being responded to.
+    let latestQuestion: TranscriptSegment?
 }
 
 struct ConversationResponse: Sendable {

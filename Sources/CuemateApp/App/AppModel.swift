@@ -1296,13 +1296,7 @@ final class AppModel: ObservableObject {
     }
 
     private var currentConfidenceAssessment: ConfidenceAssessment {
-        confidenceAssessment(
-            request: ConversationRequest(
-                configuration: configuration,
-                transcriptSegments: transcriptSegments,
-                retrievalResults: retrievalResults
-            )
-        )
+        confidenceAssessment(request: liveConversationRequest())
     }
 
     private var currentObjectionKind: ObjectionKind {
@@ -2631,10 +2625,17 @@ final class AppModel: ObservableObject {
     }
 
     private func liveConversationRequest() -> ConversationRequest {
-        ConversationRequest(
+        let segments = liveContextSegments()
+        let latestQ = segments.first(where: {
+            normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName)
+        })
+        return ConversationRequest(
             configuration: configuration,
-            transcriptSegments: liveContextSegments(),
-            retrievalResults: retrievalResults
+            transcriptSegments: segments,
+            retrievalResults: retrievalResults,
+            userDisplayName: userDisplayName,
+            collaboratorRoleLabel: collaboratorRoleLabel,
+            latestQuestion: latestQ
         )
     }
 

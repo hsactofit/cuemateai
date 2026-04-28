@@ -122,29 +122,40 @@ struct OllamaConversationService: Sendable {
     }
 
     private func buildPrompt(from request: ConversationRequest) -> String {
-        let transcript = request.transcriptSegments.prefix(8).map(\.text).joined(separator: "\n")
-        let sources = request.retrievalResults.prefix(3).map { result in
-            "[\(result.document.fileName)] \(result.chunk.text)"
-        }.joined(separator: "\n")
+        let you = request.userDisplayName
+        let other = request.collaboratorRoleLabel
         let modeGuidance = modeHelper.systemPromptSection(for: request.configuration.meetingType)
 
+        let latestQ = request.latestQuestion.map { seg in
+            "\(other): \(seg.text.trimmingCharacters(in: .whitespacesAndNewlines))"
+        } ?? "None"
+
+        let priorTurns = request.transcriptSegments.filter { seg in
+            seg.id != request.latestQuestion?.id
+        }.prefix(3).map { seg in
+            let label = seg.speaker.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                == you.lowercased() ? you : other
+            return "\(label): \(seg.text.trimmingCharacters(in: .whitespacesAndNewlines))"
+        }.joined(separator: "\n")
+
+        let sources = request.retrievalResults.prefix(2).map { result in
+            "[\(result.document.fileName)] \(result.chunk.text)"
+        }.joined(separator: "\n")
+
         return """
-        You are a live meeting copilot.
-        Respond like a calm, premium assistant in a high-pressure meeting.
+        You are a live meeting copilot. Respond like a calm, premium assistant in a high-pressure meeting.
         Keep the primary answer to 1-2 short sentences. Prefer clarity over completeness.
 
-        Meeting configuration:
-        - meetingType: \(request.configuration.meetingType)
-        - userLevel: \(request.configuration.userLevel)
-        - tone: \(request.configuration.tone)
-        - length: \(request.configuration.length)
-        - creativity: \(request.configuration.creativity)
-        - aiMode: \(request.configuration.aiMode)
+        Participants: \(you) (user) and \(other).
+        Meeting type: \(request.configuration.meetingType) | tone: \(request.configuration.tone) | length: \(request.configuration.length) | level: \(request.configuration.userLevel)
 
-        Recent transcript:
-        \(transcript.isEmpty ? "None yet" : transcript)
+        Latest statement/question to respond to:
+        \(latestQ)
 
-        Retrieved context:
+        Prior context (recent turns):
+        \(priorTurns.isEmpty ? "None" : priorTurns)
+
+        Retrieved knowledge:
         \(sources.isEmpty ? "None" : sources)
 
         \(modeGuidance)

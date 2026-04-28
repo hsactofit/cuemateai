@@ -2,8 +2,10 @@
 
 ## 2026-04-28
 
-- `CM-BLG-001` Testing foundation: converted tests to XCTest, added `GuidanceGuardrailTests.swift`; `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test` passes with 6 tests.
+- `CM-BLG-001` Testing foundation: converted tests to XCTest, added `GuidanceGuardrailTests.swift`; `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test` passes with 9 tests.
 - `CM-BLG-014` Live reliability guardrails: increased min refresh interval (1.6 s → 2.5 s), added trailing-fragment guard, added 3 s post-answer cooldown in `guidanceStabilityReason`. Build clean.
+- `CM-BLG-031` Role-aware speaker labeling: `collaboratorRoleLabel` (Prospect/Client/Interviewer/Teammate/Other) now flows into `ConversationRequest` and into both AI service prompts. Speaker-labeled transcript lines replace raw text blobs.
+- `CM-BLG-033` Context window shaping: `ConversationRequest.latestQuestion` pinpoints the exact segment to respond to; `buildPrompt` now separates "Latest statement/question" from "Prior context (recent turns)" and trims retrieval to 2 sources. Build clean, 9 tests passing.
 
 ## 2026-04-26 (Launch-readiness doc audit)
 
