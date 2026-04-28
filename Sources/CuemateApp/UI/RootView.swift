@@ -87,6 +87,9 @@ struct StartSessionWorkspaceView: View {
 
             HStack(alignment: .top, spacing: 20) {
                 VStack(alignment: .leading, spacing: 20) {
+                    if model.showAutoStartSuggestion {
+                        autoStartSuggestionCard
+                    }
                     sessionCard
                     meetingContextCard
                     meetingGoalsCard
@@ -178,6 +181,41 @@ struct StartSessionWorkspaceView: View {
                         CompactMetric(title: "Guidance", value: "\(session.guidanceHistory.count)")
                         CompactMetric(title: "Provider", value: providerLabel(model.generationProvider))
                     }
+                }
+            }
+        }
+    }
+
+    private var autoStartSuggestionCard: some View {
+        SurfaceCard {
+            HStack(spacing: 14) {
+                Image(systemName: "waveform.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.green)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Meeting Detected")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Cuemate is picking up a conversation. Start a session to get live guidance.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                HStack(spacing: 10) {
+                    Button("Start Session") {
+                        model.startMeetingSession()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+
+                    Button("Dismiss") {
+                        model.dismissAutoStartSuggestion()
+                    }
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+                    .foregroundStyle(.secondary)
                 }
             }
         }
@@ -1042,13 +1080,11 @@ struct OverlayPanelView: View {
                     color: overlayStateColor
                 )
                 Spacer()
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     Text(model.detectedIntent.title)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Color.white.opacity(0.72))
-                    Text(model.guidanceConfidence.title)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.white.opacity(0.7))
+                    confidenceBadge(model.guidanceConfidence)
                 }
             }
 
@@ -1058,6 +1094,7 @@ struct OverlayPanelView: View {
 
             overlayBlock(title: "Question", body: model.latestQuestionText, style: .secondary)
             overlayBulletBlock(title: "Points", body: model.liveResponseText)
+            overlayWhyHint(model.overlayWhyText)
             if let summary = model.recoverySummaryText {
                 overlayBlock(title: "What Happened", body: summary, style: .muted)
             }
@@ -1099,6 +1136,42 @@ struct OverlayPanelView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(Color.yellow.opacity(0.25), lineWidth: 1)
         )
+    }
+
+    @ViewBuilder private func confidenceBadge(_ confidence: GuidanceConfidence) -> some View {
+        let (label, color): (String, Color) = switch confidence {
+        case .high: ("High", Color.green.opacity(0.9))
+        case .medium: ("Med", Color.yellow.opacity(0.85))
+        case .low: ("Low", Color.red.opacity(0.85))
+        }
+        Text(label)
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(color.opacity(0.15))
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(color.opacity(0.35), lineWidth: 1)
+            )
+    }
+
+    @ViewBuilder private func overlayWhyHint(_ text: String) -> some View {
+        if !text.isEmpty {
+            HStack(spacing: 6) {
+                Image(systemName: "lightbulb.fill")
+                    .font(.caption2)
+                    .foregroundStyle(Color.white.opacity(0.45))
+                Text(text)
+                    .font(.caption)
+                    .foregroundStyle(Color.white.opacity(0.5))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     private func overlayBlock(title: String, body: String, style: OverlayLineStyle) -> some View {

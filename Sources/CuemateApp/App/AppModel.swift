@@ -560,6 +560,7 @@ final class AppModel: ObservableObject {
     @Published var selectedSessionID: UUID?
     @Published var historyState = HistoryState(sessions: [], documents: [])
     @Published var sessionDiagnostics = SessionDiagnostics()
+    @Published var showAutoStartSuggestion = false
 
     let appPaths: AppPaths
 
@@ -971,6 +972,10 @@ final class AppModel: ObservableObject {
             return "Using context from \(source)."
         }
         return "Using recent live transcript."
+    }
+
+    var overlayWhyText: String {
+        overlayContent.why.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     var liveContextSummary: String {
@@ -1938,7 +1943,12 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func dismissAutoStartSuggestion() {
+        showAutoStartSuggestion = false
+    }
+
     func startMeetingSession() {
+        showAutoStartSuggestion = false
         let trimmedTitle = sessionDraftTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         let title = trimmedTitle.isEmpty ? defaultSessionTitle(for: Date()) : trimmedTitle
 
@@ -2322,6 +2332,7 @@ final class AppModel: ObservableObject {
             transcriptSegments.insert(segment, at: 0)
             if normalizedSpeakerName(segment.speaker) != normalizedSpeakerName(userDisplayName) {
                 lastOtherSpeakerTurnAt = Date()
+                checkAutoStartCondition()
             }
             appendTranscriptToActiveSession(segment)
             Task {
@@ -2568,6 +2579,14 @@ final class AppModel: ObservableObject {
         guard !spokenWords.isEmpty else { return false }
         let overlapCount = spokenWords.filter { answerWords.contains($0) }.count
         return overlapCount >= min(max(3, spokenWords.count / 2), 6)
+    }
+
+    private func checkAutoStartCondition() {
+        guard activeMeetingSession == nil,
+              audioCaptureState == .capturing,
+              transcriptSegments.filter({ normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName) }).count >= 2
+        else { return }
+        showAutoStartSuggestion = true
     }
 
     private func detectIntent(from text: String) -> LiveIntent {
