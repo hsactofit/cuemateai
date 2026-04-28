@@ -14,6 +14,57 @@ struct AppState: Codable, Sendable {
     var transcriptionProvider: TranscriptionProvider = .appleSpeech
     var generationProvider: GenerationProvider = .localHeuristic
     var autoResponseEnabled: Bool = true
+    var memoryEnabled: Bool = true
+    var excludedFromMemoryIDs: [String] = []
+
+    enum CodingKeys: String, CodingKey {
+        case configuration, overlayContent, clickThroughEnabled, isPaused
+        case overlayPinnedNearCamera, overlayAnchor, overlayHorizontalInset, overlayVerticalInset
+        case confidenceMode, currentSuggestionIndex, transcriptionProvider, generationProvider
+        case autoResponseEnabled, memoryEnabled, excludedFromMemoryIDs
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        configuration = try c.decode(MeetingConfiguration.self, forKey: .configuration)
+        overlayContent = try c.decode(OverlayContent.self, forKey: .overlayContent)
+        clickThroughEnabled = try c.decode(Bool.self, forKey: .clickThroughEnabled)
+        isPaused = try c.decode(Bool.self, forKey: .isPaused)
+        overlayPinnedNearCamera = try c.decode(Bool.self, forKey: .overlayPinnedNearCamera)
+        overlayAnchor = (try? c.decode(OverlayAnchor.self, forKey: .overlayAnchor)) ?? .topCenter
+        overlayHorizontalInset = (try? c.decode(Double.self, forKey: .overlayHorizontalInset)) ?? 0
+        overlayVerticalInset = (try? c.decode(Double.self, forKey: .overlayVerticalInset)) ?? 0
+        confidenceMode = try c.decode(String.self, forKey: .confidenceMode)
+        currentSuggestionIndex = try c.decode(Int.self, forKey: .currentSuggestionIndex)
+        transcriptionProvider = (try? c.decode(TranscriptionProvider.self, forKey: .transcriptionProvider)) ?? .appleSpeech
+        generationProvider = (try? c.decode(GenerationProvider.self, forKey: .generationProvider)) ?? .localHeuristic
+        autoResponseEnabled = (try? c.decode(Bool.self, forKey: .autoResponseEnabled)) ?? true
+        memoryEnabled = (try? c.decode(Bool.self, forKey: .memoryEnabled)) ?? true
+        excludedFromMemoryIDs = (try? c.decode([String].self, forKey: .excludedFromMemoryIDs)) ?? []
+    }
+
+    init(configuration: MeetingConfiguration, overlayContent: OverlayContent,
+         clickThroughEnabled: Bool, isPaused: Bool, overlayPinnedNearCamera: Bool,
+         overlayAnchor: OverlayAnchor, overlayHorizontalInset: Double, overlayVerticalInset: Double,
+         confidenceMode: String, currentSuggestionIndex: Int,
+         transcriptionProvider: TranscriptionProvider, generationProvider: GenerationProvider,
+         autoResponseEnabled: Bool, memoryEnabled: Bool, excludedFromMemoryIDs: [String]) {
+        self.configuration = configuration
+        self.overlayContent = overlayContent
+        self.clickThroughEnabled = clickThroughEnabled
+        self.isPaused = isPaused
+        self.overlayPinnedNearCamera = overlayPinnedNearCamera
+        self.overlayAnchor = overlayAnchor
+        self.overlayHorizontalInset = overlayHorizontalInset
+        self.overlayVerticalInset = overlayVerticalInset
+        self.confidenceMode = confidenceMode
+        self.currentSuggestionIndex = currentSuggestionIndex
+        self.transcriptionProvider = transcriptionProvider
+        self.generationProvider = generationProvider
+        self.autoResponseEnabled = autoResponseEnabled
+        self.memoryEnabled = memoryEnabled
+        self.excludedFromMemoryIDs = excludedFromMemoryIDs
+    }
 }
 
 struct ConfigStore: Sendable {

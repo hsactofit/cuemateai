@@ -522,6 +522,12 @@ final class AppModel: ObservableObject {
     @Published var autoResponseEnabled = true {
         didSet { persistState() }
     }
+    @Published var memoryEnabled = true {
+        didSet { persistState() }
+    }
+    @Published var excludedFromMemoryIDs: Set<UUID> = [] {
+        didSet { persistState() }
+    }
     @Published var importedDocuments: [IngestedDocument] = []
     @Published var lastImportedChunkCount = 0
     @Published var retrievalQuery = ""
@@ -1613,12 +1619,34 @@ final class AppModel: ObservableObject {
     }
 
     var recurringMemoryItems: [String] {
+        guard memoryEnabled else {
+            return ["Memory is disabled. Enable it in Settings → Memory Controls."]
+        }
         let past = meetingSessions.filter { !$0.isActive }
-        let note = CrossSessionMemoryBuilder().build(for: configuration, from: past)
+        let note = CrossSessionMemoryBuilder().build(for: configuration, from: past, excluding: excludedFromMemoryIDs)
         if note.isEmpty {
             return ["No recurring memory yet. Complete a few sessions to build continuity here."]
         }
         return note.text.components(separatedBy: "\n").filter { !$0.isEmpty }
+    }
+
+    /// Sessions currently contributing to the cross-session memory note.
+    var memorySources: [MeetingSessionRecord] {
+        guard memoryEnabled else { return [] }
+        let past = meetingSessions.filter { !$0.isActive }
+        return CrossSessionMemoryBuilder().relevantSessions(for: configuration, from: past, excluding: excludedFromMemoryIDs)
+    }
+
+    func toggleMemoryExclusion(for sessionID: UUID) {
+        if excludedFromMemoryIDs.contains(sessionID) {
+            excludedFromMemoryIDs.remove(sessionID)
+        } else {
+            excludedFromMemoryIDs.insert(sessionID)
+        }
+    }
+
+    func clearMemoryExclusions() {
+        excludedFromMemoryIDs.removeAll()
     }
 
     /// Suggested answer style based on past sessions of the same meeting type.
@@ -2176,6 +2204,8 @@ final class AppModel: ObservableObject {
             transcriptionProvider = state.transcriptionProvider
             generationProvider = state.generationProvider
             autoResponseEnabled = state.autoResponseEnabled
+            memoryEnabled = state.memoryEnabled
+            excludedFromMemoryIDs = Set(state.excludedFromMemoryIDs.compactMap(UUID.init))
             appendLog("Loaded saved local configuration")
         } catch {
             appendLog("Using default local configuration")
@@ -2196,7 +2226,9 @@ final class AppModel: ObservableObject {
             currentSuggestionIndex: currentSuggestionIndex,
             transcriptionProvider: transcriptionProvider,
             generationProvider: generationProvider,
-            autoResponseEnabled: autoResponseEnabled
+            autoResponseEnabled: autoResponseEnabled,
+            memoryEnabled: memoryEnabled,
+            excludedFromMemoryIDs: excludedFromMemoryIDs.map(\.uuidString)
         )
 
         do {
@@ -2666,8 +2698,13 @@ final class AppModel: ObservableObject {
         })
         let intent = detectIntent(from: latestQ?.text ?? latestTranscriptText)
         let pastSessions = meetingSessions.filter { !$0.isActive }
-        let memoryBuilder = CrossSessionMemoryBuilder()
-        let memoryNote = memoryBuilder.build(for: configuration, from: pastSessions)
+        let memoryText: String
+        if memoryEnabled {
+            let memoryNote = CrossSessionMemoryBuilder().build(for: configuration, from: pastSessions, excluding: excludedFromMemoryIDs)
+            memoryText = memoryNote.text
+        } else {
+            memoryText = ""
+        }
         return ConversationRequest(
             configuration: configuration,
             transcriptSegments: segments,
@@ -2676,7 +2713,7 @@ final class AppModel: ObservableObject {
             collaboratorRoleLabel: collaboratorRoleLabel,
             latestQuestion: latestQ,
             detectedIntent: intent.rawValue,
-            crossSessionMemory: memoryNote.text
+            crossSessionMemory: memoryText
         )
     }
 

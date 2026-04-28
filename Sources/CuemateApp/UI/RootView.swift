@@ -753,6 +753,7 @@ struct SettingsWorkspaceView: View {
                     setupCard
                     providerCard
                     privacyCard
+                    memoryControlsCard
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -999,6 +1000,143 @@ struct SettingsWorkspaceView: View {
                     }
                 }
             }
+        }
+    }
+
+    private var memoryControlsCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Memory Controls")
+                            .font(.title3.weight(.semibold))
+                        Text("Control which sessions contribute to live guidance and pre-meeting context.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: $model.memoryEnabled)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                }
+
+                if model.memoryEnabled {
+                    let sources = model.memorySources
+                    if sources.isEmpty {
+                        Text("No sessions are contributing to memory yet. Complete a session with the current meeting configuration to build context.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("CONTRIBUTING SESSIONS")
+                                    .font(.caption2.weight(.bold))
+                                    .tracking(0.8)
+                                    .foregroundStyle(.tertiary)
+                                Spacer()
+                                if !model.excludedFromMemoryIDs.isEmpty {
+                                    Button("Clear exclusions") {
+                                        model.clearMemoryExclusions()
+                                    }
+                                    .font(.caption)
+                                    .foregroundStyle(Color.accentColor)
+                                    .buttonStyle(.plain)
+                                }
+                            }
+
+                            ForEach(sources) { session in
+                                memorySourceRow(session)
+                            }
+                        }
+
+                        let excluded = model.excludedFromMemoryIDs.count
+                        if excluded > 0 {
+                            Text("\(excluded) session\(excluded == 1 ? "" : "s") excluded from memory.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("CURRENT MEMORY NOTE")
+                            .font(.caption2.weight(.bold))
+                            .tracking(0.8)
+                            .foregroundStyle(.tertiary)
+                        ForEach(model.recurringMemoryItems, id: \.self) { line in
+                            HStack(alignment: .top, spacing: 6) {
+                                Text("·")
+                                    .foregroundStyle(.secondary)
+                                Text(line)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                } else {
+                    Text("Memory is off. Live guidance will not include past session context for this meeting type or participant.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func memorySourceRow(_ session: MeetingSessionRecord) -> some View {
+        let excluded = model.excludedFromMemoryIDs.contains(session.id)
+        return HStack(spacing: 10) {
+            Image(systemName: excluded ? "circle.slash" : "checkmark.circle.fill")
+                .foregroundStyle(excluded ? Color.secondary : Color.green)
+                .font(.caption)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(session.title)
+                    .font(.caption.weight(.medium))
+                    .lineLimit(1)
+                if let date = session.endedAt {
+                    Text(RelativeDateTimeFormatter().localizedString(for: date, relativeTo: Date()))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+
+            Spacer()
+
+            if let outcome = session.sessionOutcome {
+                Text(outcome.title)
+                    .font(.caption2)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background((excluded ? Color.gray : outcomeAccentColor(outcome)).opacity(0.75))
+                    .cornerRadius(3)
+            }
+
+            Button(excluded ? "Include" : "Exclude") {
+                model.toggleMemoryExclusion(for: session.id)
+            }
+            .font(.caption)
+            .buttonStyle(.borderless)
+            .foregroundStyle(excluded ? Color.accentColor : Color.secondary)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(excluded ? Color(nsColor: .controlBackgroundColor).opacity(0.5) : Color(nsColor: .controlBackgroundColor))
+        )
+        .opacity(excluded ? 0.6 : 1.0)
+    }
+
+    private func outcomeAccentColor(_ outcome: SessionOutcome) -> Color {
+        switch outcome {
+        case .pilot: .green
+        case .followUp: .blue
+        case .blocked: .red
+        case .internalAction: .orange
+        case .openRisk: .yellow
+        case .unclear: .gray
         }
     }
 

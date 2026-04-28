@@ -18,9 +18,11 @@ struct CrossSessionMemoryBuilder: Sendable {
     /// Returns an empty MemoryNote when there is no useful history.
     func build(
         for configuration: MeetingConfiguration,
-        from pastSessions: [MeetingSessionRecord]
+        from pastSessions: [MeetingSessionRecord],
+        excluding excludedIDs: Set<UUID> = []
     ) -> MemoryNote {
-        let relevant = selectRelevantSessions(for: configuration, from: pastSessions)
+        let eligible = excludedIDs.isEmpty ? pastSessions : pastSessions.filter { !excludedIDs.contains($0.id) }
+        let relevant = selectRelevantSessions(for: configuration, from: eligible)
         guard !relevant.isEmpty else { return MemoryNote(text: "", sessionCount: 0) }
 
         var lines: [String] = []
@@ -83,6 +85,16 @@ struct CrossSessionMemoryBuilder: Sendable {
         guard styles.count >= 2 else { return nil }
         let counts = Dictionary(grouping: styles, by: { $0 }).mapValues(\.count)
         return counts.max(by: { $0.value < $1.value })?.key
+    }
+
+    /// Returns the sessions that would contribute to the memory note for the given configuration.
+    func relevantSessions(
+        for configuration: MeetingConfiguration,
+        from pastSessions: [MeetingSessionRecord],
+        excluding excludedIDs: Set<UUID> = []
+    ) -> [MeetingSessionRecord] {
+        let eligible = excludedIDs.isEmpty ? pastSessions : pastSessions.filter { !excludedIDs.contains($0.id) }
+        return selectRelevantSessions(for: configuration, from: eligible)
     }
 
     // MARK: - Helpers
