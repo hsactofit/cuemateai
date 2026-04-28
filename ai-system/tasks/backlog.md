@@ -13,11 +13,6 @@ All P0–P3 and the first P4 item (CM-BLG-110) are complete.
 
 ## P4 Future Differentiation
 
-### CM-BLG-114 `CRM and calendar integrations`
-- Pull meeting metadata, attendees, notes, and account context from external systems.
-- Acceptance:
-  Prep and follow-up become easier without manual copy-paste.
-
 ### CM-BLG-115 `Team and manager workflows`
 - Support shared best-practice templates, review notes, coaching packs, and team-specific playbooks.
 - Acceptance:

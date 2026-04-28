@@ -321,6 +321,22 @@ struct StartSessionWorkspaceView: View {
                 TextField("Prior context note (optional)", text: $model.configuration.priorContextNote)
                     .textFieldStyle(.roundedBorder)
 
+                Divider()
+
+                if let event = model.importedCalendarEvent {
+                    calendarEventRow(event)
+                } else {
+                    Button("Import Calendar Event (.ics)") {
+                        let panel = NSOpenPanel()
+                        panel.allowedContentTypes = [.init(filenameExtension: "ics")!]
+                        panel.allowsMultipleSelection = false
+                        if panel.runModal() == .OK, let url = panel.url {
+                            model.importCalendarEvent(from: url)
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                }
+
                 if !model.configuration.participantName.isEmpty || !model.configuration.participantCompany.isEmpty {
                     Text(model.participantContextSummary)
                         .font(.caption)
@@ -328,6 +344,49 @@ struct StartSessionWorkspaceView: View {
                 }
             }
         }
+    }
+
+    private func calendarEventRow(_ event: CalendarEventRecord) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Image(systemName: "calendar")
+                    .foregroundStyle(.blue)
+                    .font(.caption)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(event.title.isEmpty ? "Imported Event" : event.title)
+                        .font(.caption.weight(.semibold))
+                    if let start = event.startDate {
+                        Text(start, style: .date)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                Spacer()
+                Button("Clear") { model.clearCalendarEvent() }
+                    .font(.caption)
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.secondary)
+            }
+
+            if !event.attendeeNames.isEmpty {
+                Text("Attendees: \(event.attendeeNames.prefix(5).joined(separator: ", "))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            if !event.agenda.isEmpty {
+                Text(event.agenda.prefix(120).description + (event.agenda.count > 120 ? "…" : ""))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+            }
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.blue.opacity(0.06))
+        )
     }
 
     private var liveControlCard: some View {

@@ -27,6 +27,7 @@ struct BriefCoordinator: Sendable {
         let documentIDs: [UUID]
         let priorSessions: [MeetingSessionRecord]
         let strategy: BriefGenerationStrategy
+        var calendarContext: String = ""
 
         /// Convenience factory. Selects a strategy automatically:
         /// - Passes `ollamaModel` if provided and non-empty.
@@ -64,7 +65,8 @@ struct BriefCoordinator: Sendable {
             configuration: input.configuration,
             snapshot: input.snapshot,
             documentIDs: input.documentIDs,
-            priorSessions: input.priorSessions
+            priorSessions: input.priorSessions,
+            calendarContext: input.calendarContext
         )
         let heuristic = MeetingBriefBuilder().build(from: briefInput)
 
@@ -77,7 +79,8 @@ struct BriefCoordinator: Sendable {
                 model: model,
                 configuration: input.configuration,
                 documentHighlights: heuristic.documentHighlights,
-                priorSessionNote: heuristic.priorSessionNote
+                priorSessionNote: heuristic.priorSessionNote,
+                calendarContext: input.calendarContext
             )
             do {
                 return try await OllamaBriefService().generateBrief(from: request)
@@ -91,7 +94,8 @@ struct BriefCoordinator: Sendable {
                 model: model,
                 configuration: input.configuration,
                 documentHighlights: heuristic.documentHighlights,
-                priorSessionNote: heuristic.priorSessionNote
+                priorSessionNote: heuristic.priorSessionNote,
+                calendarContext: input.calendarContext
             )
             do {
                 return try await OpenAIBriefService().generateBrief(from: request)

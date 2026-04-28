@@ -50,6 +50,8 @@ struct MeetingBriefBuilder: Sendable {
         let documentChunks: [DocumentChunk]
         /// Prior completed sessions used for continuity context.
         let priorSessions: [MeetingSessionRecord]
+        /// Calendar event context imported from an ICS file. Empty string when none.
+        var calendarContext: String = ""
     }
 
     func build(from input: BriefInput) -> MeetingBrief {
@@ -65,10 +67,14 @@ struct MeetingBriefBuilder: Sendable {
             documents: input.attachedDocuments,
             chunks: input.documentChunks
         )
-        let priorNote = extractPriorSessionNote(
+        var priorNote = extractPriorSessionNote(
             from: input.priorSessions,
             meetingType: meetingType
         )
+        if !input.calendarContext.isEmpty {
+            let calNote = "Calendar event: \(input.calendarContext)"
+            priorNote = priorNote.map { "\($0)\n\(calNote)" } ?? calNote
+        }
 
         return MeetingBrief(
             meetingType: meetingType,
@@ -409,7 +415,8 @@ extension MeetingBriefBuilder.BriefInput {
         configuration: MeetingConfiguration,
         snapshot: DocumentLibrarySnapshot,
         documentIDs: [UUID],
-        priorSessions: [MeetingSessionRecord]
+        priorSessions: [MeetingSessionRecord],
+        calendarContext: String = ""
     ) -> Self {
         let idSet = Set(documentIDs)
         let attached = snapshot.documents.filter { idSet.contains($0.id) }
@@ -417,7 +424,8 @@ extension MeetingBriefBuilder.BriefInput {
             configuration: configuration,
             attachedDocuments: attached,
             documentChunks: snapshot.chunks,
-            priorSessions: priorSessions
+            priorSessions: priorSessions,
+            calendarContext: calendarContext
         )
     }
 }

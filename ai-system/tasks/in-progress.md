@@ -17,5 +17,4 @@ Run real-meeting validation before continuing with P4:
 - `.ai-system/testing/live-meeting-checklist.md`
 
 Next P4 candidates (in recommended order):
-- `CM-BLG-114` CRM and calendar integrations
 - `CM-BLG-115` Team and manager workflows

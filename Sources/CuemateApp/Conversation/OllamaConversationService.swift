@@ -183,6 +183,10 @@ struct OllamaConversationService: Sendable {
                 String(screenSection.prefix(1500)),
             ]
         }
+        let calSection = request.calendarContext.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !calSection.isEmpty {
+            parts += ["", "Calendar event context:", calSection]
+        }
         parts += [
             "",
             modeGuidance,

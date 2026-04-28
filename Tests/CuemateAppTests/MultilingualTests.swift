@@ -76,7 +76,8 @@ final class MultilingualTests: XCTestCase {
             detectedIntent: "general",
             crossSessionMemory: "",
             meetingLanguage: config.meetingLanguage,
-            screenContext: ""
+            screenContext: "",
+            calendarContext: ""
         )
         XCTAssertEqual(request.meetingLanguage, "es")
     }

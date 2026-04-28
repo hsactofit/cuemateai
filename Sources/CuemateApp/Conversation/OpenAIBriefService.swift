@@ -12,6 +12,8 @@ struct OpenAIBriefGenerationRequest: Sendable {
     let documentHighlights: [MeetingBrief.DocumentHighlight]
     /// Note from the most recent prior session of the same type, if any.
     let priorSessionNote: String?
+    /// Calendar event context from an imported ICS file. Empty string when none.
+    var calendarContext: String = ""
 }
 
 // MARK: - Error
@@ -113,6 +115,11 @@ struct OpenAIBriefService: Sendable {
         systemParts.append("- priorSessionNote: a short sentence referencing prior session context, or empty string if none")
 
         var userParts: [String] = []
+
+        if !input.calendarContext.isEmpty {
+            userParts.append("Calendar event context:")
+            userParts.append(input.calendarContext)
+        }
 
         if let note = input.priorSessionNote, !note.isEmpty {
             userParts.append("Prior session context: \(note)")

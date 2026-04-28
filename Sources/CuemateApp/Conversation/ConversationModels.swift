@@ -16,6 +16,8 @@ struct ConversationRequest: Sendable {
     let meetingLanguage: String
     /// On-screen text captured via OCR. Empty string when screen context is disabled or unavailable.
     let screenContext: String
+    /// Calendar event context imported from an ICS file. Empty string when no event is imported.
+    let calendarContext: String
 }
 
 struct ConversationResponse: Sendable {

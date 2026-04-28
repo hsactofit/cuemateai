@@ -93,7 +93,8 @@ final class ScreenContextTests: XCTestCase {
             detectedIntent: "general",
             crossSessionMemory: "",
             meetingLanguage: "en",
-            screenContext: screenContext
+            screenContext: screenContext,
+            calendarContext: ""
         )
     }
 

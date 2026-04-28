@@ -13,6 +13,8 @@ struct OllamaBriefGenerationRequest: Sendable {
     let documentHighlights: [MeetingBrief.DocumentHighlight]
     /// Note from the most recent prior session of the same type, if any.
     let priorSessionNote: String?
+    /// Calendar event context from an imported ICS file. Empty string when none.
+    var calendarContext: String = ""
 }
 
 // MARK: - Error
@@ -99,6 +101,12 @@ struct OllamaBriefService: Sendable {
             "",
             modeSection,
         ]
+
+        if !input.calendarContext.isEmpty {
+            parts.append("")
+            parts.append("Calendar event context:")
+            parts.append(input.calendarContext)
+        }
 
         if let note = input.priorSessionNote, !note.isEmpty {
             parts.append("")

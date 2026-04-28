@@ -590,6 +590,7 @@ final class AppModel: ObservableObject {
     @Published var screenPermissionGranted = false
     @Published var screenContextText = ""
     @Published var screenContextCapturedAt: Date? = nil
+    @Published var importedCalendarEvent: CalendarEventRecord? = nil
     @Published var importedDocuments: [IngestedDocument] = []
     @Published var lastImportedChunkCount = 0
     @Published var retrievalQuery = ""
@@ -1773,6 +1774,23 @@ final class AppModel: ObservableObject {
         }
     }
 
+    // MARK: - Calendar import
+
+    func importCalendarEvent(from url: URL) {
+        do {
+            let event = try CalendarEventParser().parse(contentsOf: url)
+            importedCalendarEvent = event
+            appendLog("Imported calendar event: \(event.title)")
+        } catch {
+            appendLog("Calendar import failed: \(error.localizedDescription)")
+        }
+    }
+
+    func clearCalendarEvent() {
+        importedCalendarEvent = nil
+        appendLog("Calendar event cleared")
+    }
+
     var privacyExecutionSummary: String {
         switch generationProvider {
         case .localHeuristic:
@@ -2614,7 +2632,8 @@ final class AppModel: ObservableObject {
             snapshot: snapshot,
             documentIDs: importedDocuments.map(\.id),
             priorSessions: meetingSessions.filter { !$0.isActive },
-            strategy: selectedBriefGenerationStrategy()
+            strategy: selectedBriefGenerationStrategy(),
+            calendarContext: importedCalendarEvent?.calendarContextSummary ?? ""
         )
 
         let brief = await BriefCoordinator().build(from: input)
@@ -2865,7 +2884,8 @@ final class AppModel: ObservableObject {
             detectedIntent: intent.rawValue,
             crossSessionMemory: memoryText,
             meetingLanguage: configuration.meetingLanguage,
-            screenContext: screenContextEnabled ? screenContextText : ""
+            screenContext: screenContextEnabled ? screenContextText : "",
+            calendarContext: importedCalendarEvent?.calendarContextSummary ?? ""
         )
     }
 
