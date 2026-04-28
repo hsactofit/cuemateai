@@ -1,5 +1,14 @@
 # Updates Log
 
+## 2026-04-28 (CM-BLG-001 + CM-BLG-014 — testing foundation and live reliability guardrails)
+
+- Converted `MeetingSessionStoreTests.swift` from Swift Testing (`import Testing`) to XCTest (`import XCTest`) to fix `no such module 'Testing'` under the Command Line Tools toolchain. Tests pass with `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test`.
+- Added `GuidanceGuardrailTests.swift` with smoke tests for legacy session decode, `SessionDiagnostics` defaults and equality, and `MeetingSessionRecord.makeNew` factory defaults. Suite now has 6 tests, all green.
+- `guidanceStabilityReason`: added `isTrailingFragment` check — suppresses guidance when the latest segment ends with a connector/filler word or starts with a leading conjunction and is too short to be a complete thought.
+- `guidanceStabilityReason`: added post-answer cooldown — skips guidance refresh for 3 seconds after `lastAnswerCompletionAt` is set (i.e., after the user has delivered their answer), preventing an immediate re-trigger while the conversation is still settling.
+- `handleAutomaticGuidance`: increased minimum refresh interval from 1.6 s to 2.5 s so the overlay does not jitter on fast back-to-back transcript updates.
+- Build verified clean, zero warnings. All 6 tests pass.
+
 ## 2026-04-26 (Launch-readiness doc audit — personalization, memory, mode polish)
 
 - README: added preferred answer style to the Settings section description.

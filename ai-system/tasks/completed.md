@@ -1,5 +1,10 @@
 # Completed
 
+## 2026-04-28
+
+- `CM-BLG-001` Testing foundation: converted tests to XCTest, added `GuidanceGuardrailTests.swift`; `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test` passes with 6 tests.
+- `CM-BLG-014` Live reliability guardrails: increased min refresh interval (1.6 s → 2.5 s), added trailing-fragment guard, added 3 s post-answer cooldown in `guidanceStabilityReason`. Build clean.
+
 ## 2026-04-26 (Launch-readiness doc audit)
 
 - Audited README, product.html, and all three testing docs against latest shipped work (personalization, recurring memory, mode polish).

@@ -2352,7 +2352,7 @@ final class AppModel: ObservableObject {
         }
 
         if let lastGuidanceRefreshAt,
-           Date().timeIntervalSince(lastGuidanceRefreshAt) < 1.6 {
+           Date().timeIntervalSince(lastGuidanceRefreshAt) < 2.5 {
             liveResponseState = "Waiting for stable transcript"
             return
         }
@@ -2804,6 +2804,15 @@ final class AppModel: ObservableObject {
             return "Waiting for more context"
         }
 
+        if isTrailingFragment(trimmed) {
+            return "Waiting for complete thought"
+        }
+
+        if let completedAt = lastAnswerCompletionAt,
+           Date().timeIntervalSince(completedAt) < 3.0 {
+            return "Holding post-answer window"
+        }
+
         let recentOtherTurns = transcriptSegments.filter {
             $0.isFinal && normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName)
         }
@@ -2819,6 +2828,21 @@ final class AppModel: ObservableObject {
         }
 
         return nil
+    }
+
+    private func isTrailingFragment(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        let words = normalizedWords(from: lower)
+        guard let last = words.last else { return false }
+        let trailingFillers: Set<String> = ["and", "but", "or", "so", "um", "uh", "like", "well", "i", "the", "a", "an", "with", "to", "for", "that", "if", "as"]
+        if trailingFillers.contains(last) { return true }
+        let hasSentenceEnd = lower.hasSuffix(".") || lower.hasSuffix("?") || lower.hasSuffix("!")
+        let leadingConnectors: Set<String> = ["and", "but", "or", "so", "because", "although", "though", "however"]
+        let firstWord = words.first ?? ""
+        if leadingConnectors.contains(firstWord) && !hasSentenceEnd && words.count < 6 {
+            return true
+        }
+        return false
     }
 
     private func guidanceFingerprint(for segment: TranscriptSegment) -> String {

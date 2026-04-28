@@ -15,8 +15,7 @@
 
 ## Next Focus
 
-- Run `.ai-system/testing/manual-beta-plan.md` and `.ai-system/testing/live-meeting-checklist.md`.
-- Tune any trust breaks found in:
-  speaker read, context window, interruption recovery, or over-eager guidance.
-- Decide whether the next code push should be:
-  deeper memory, style-learning, or test coverage.
+- `CM-BLG-031` Role-aware speaker labeling: evolve `You` / `Other` into role labels (`Prospect`, `Client`, `Interviewer`, etc.) so guidance can reference the right participant.
+- `CM-BLG-033` Context window shaping: build a better live context window (latest question + 1–2 prior turns + retrieved knowledge) instead of relying on the full raw transcript.
+- Run `.ai-system/testing/manual-beta-plan.md` and `.ai-system/testing/live-meeting-checklist.md` against the updated guardrails.
+- Decide whether to continue with `CM-BLG-041` (sales specialization) or `CM-BLG-052` (session auto-start) after speaker/context work.

@@ -1,10 +1,9 @@
 import Foundation
-import Testing
+import XCTest
 @testable import CuemateApp
 
-struct MeetingSessionStoreTests {
-    @Test
-    func legacySessionDecodesWithDefaultDiagnostics() throws {
+final class MeetingSessionStoreTests: XCTestCase {
+    func testLegacySessionDecodesWithDefaultDiagnostics() throws {
         let json = """
         {
           "sessions": [
@@ -32,17 +31,16 @@ struct MeetingSessionStoreTests {
         decoder.dateDecodingStrategy = .iso8601
 
         let library = try decoder.decode(MeetingSessionLibrary.self, from: Data(json.utf8))
-        let session = try #require(library.sessions.first)
+        let session = try XCTUnwrap(library.sessions.first)
 
-        #expect(session.title == "Legacy Session")
-        #expect(session.diagnostics == SessionDiagnostics())
-        #expect(session.followUpNotes == "")
-        #expect(session.guidanceHistory.isEmpty)
-        #expect(session.documentIDs.isEmpty)
+        XCTAssertEqual(session.title, "Legacy Session")
+        XCTAssertEqual(session.diagnostics, SessionDiagnostics())
+        XCTAssertEqual(session.followUpNotes, "")
+        XCTAssertTrue(session.guidanceHistory.isEmpty)
+        XCTAssertTrue(session.documentIDs.isEmpty)
     }
 
-    @Test
-    func saveSummaryResultPersistsDiagnostics() throws {
+    func testSaveSummaryResultPersistsDiagnostics() throws {
         let appPaths = makeTemporaryAppPaths()
         defer {
             try? FileManager.default.removeItem(at: appPaths.baseDirectory)
@@ -83,11 +81,11 @@ struct MeetingSessionStoreTests {
         try store.saveSummaryResult(result, diagnostics: diagnostics, forSessionID: session.id)
 
         let loadedSession = try store.loadSession(id: session.id)
-        let savedSession = try #require(loadedSession)
-        #expect(savedSession.summary == summary)
-        #expect(savedSession.followUpArtifact == artifact)
-        #expect(savedSession.diagnostics == diagnostics)
-        #expect(savedSession.endedAt == nil)
+        let savedSession = try XCTUnwrap(loadedSession)
+        XCTAssertEqual(savedSession.summary, summary)
+        XCTAssertEqual(savedSession.followUpArtifact, artifact)
+        XCTAssertEqual(savedSession.diagnostics, diagnostics)
+        XCTAssertNil(savedSession.endedAt)
     }
 
     private func makeTemporaryAppPaths() -> AppPaths {
