@@ -1,7 +1,7 @@
 # Backlog
 
 Completed items have been removed — see `tasks/completed.md` for the full record.
-All P0–P3 and the first P4 item (CM-BLG-110) are complete.
+All P0–P4 items (CM-BLG-110–115) are complete.
 
 ## Product Principles
 

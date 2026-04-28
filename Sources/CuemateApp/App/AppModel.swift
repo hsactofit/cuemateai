@@ -1812,7 +1812,7 @@ final class AppModel: ObservableObject {
 
     func createPlaybook(name: String, meetingType: String) {
         let defaults = MeetingPlaybook.defaults.first(where: { $0.meetingType == meetingType })
-        var playbook = MeetingPlaybook(
+        let playbook = MeetingPlaybook(
             id: UUID(),
             name: name,
             meetingType: meetingType,
