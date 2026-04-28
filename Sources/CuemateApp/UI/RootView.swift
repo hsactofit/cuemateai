@@ -89,6 +89,7 @@ struct StartSessionWorkspaceView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     sessionCard
                     meetingContextCard
+                    meetingGoalsCard
                     preMeetingBriefCard
                     recurringMemoryCard
                     readinessCard
@@ -178,6 +179,29 @@ struct StartSessionWorkspaceView: View {
                         CompactMetric(title: "Provider", value: providerLabel(model.generationProvider))
                     }
                 }
+            }
+        }
+    }
+
+    private var meetingGoalsCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Goals")
+                        .font(.title3.weight(.semibold))
+                    Text("Optional. Helps Cuemate focus live guidance on what you want to achieve.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                TextField("Meeting goal (e.g. agree on pilot scope)", text: $model.configuration.meetingGoal)
+                    .textFieldStyle(.roundedBorder)
+
+                TextField("Target outcome (e.g. get a signed NDA)", text: $model.configuration.targetOutcome)
+                    .textFieldStyle(.roundedBorder)
+
+                TextField("Must-cover points (comma-separated)", text: $model.configuration.mustCoverPoints)
+                    .textFieldStyle(.roundedBorder)
             }
         }
     }

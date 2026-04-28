@@ -66,6 +66,15 @@ struct MeetingSessionStore: Sendable {
         sessions[index].summary = result.summary
         sessions[index].followUpArtifact = result.followUpArtifact
         sessions[index].diagnostics = diagnostics
+        sessions[index].sessionOutcome = SessionOutcome.detect(from: result.summary)
+        try saveSessions(sessions)
+    }
+
+    /// Saves a manually-chosen session outcome, overriding the auto-detected one.
+    func saveSessionOutcome(_ outcome: SessionOutcome, forSessionID id: UUID) throws {
+        var sessions = try loadSessions()
+        guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
+        sessions[index].sessionOutcome = outcome
         try saveSessions(sessions)
     }
 

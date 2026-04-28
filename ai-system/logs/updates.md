@@ -1,5 +1,20 @@
 # Updates Log
 
+## 2026-04-28 (CM-BLG-062 + CM-BLG-082 — meeting goals and outcome tracking)
+
+- Added `meetingGoal`, `targetOutcome`, `mustCoverPoints` to `MeetingConfiguration` with backward-compatible decode.
+- Added `MeetingModePromptHelper.meetingGoalsSection(for:)` — produces a "Meeting goals:" block injected into both AI prompts when any goal field is set; silently omitted when empty.
+- Updated `buildPrompt` in both `OpenAIConversationService` and `OllamaConversationService` to append the goals block using array-join construction (avoids literal interpolation complexity).
+- Added `meetingGoalsCard` to `StartSessionWorkspaceView` with goal, target outcome, and must-cover fields.
+- Added `SessionOutcome` enum: pilot / follow-up / blocked / internal-action / open-risk / unclear with `title`, `statusColor`, and a signal-based `detect(from:)` factory.
+- Added `sessionOutcome: SessionOutcome?` to `MeetingSessionRecord` with backward-compatible decode (nil for old sessions).
+- `saveSummaryResult` now auto-detects and persists outcome when summary is saved.
+- Added `saveSessionOutcome(_:forSessionID:)` store helper for manual override.
+- `SessionRowView` in `SessionHistoryView` shows a color-coded outcome badge next to the mode label when an outcome is available.
+- `SessionHistoryDetailView.headerSection` shows an outcome badge inline with date/mode metadata.
+- Added 4 tests: pilot/follow-up/blocked detection from summary signals, nil-summary fallback to `.unclear`. Suite now 19 tests, all green.
+- Build verified clean, zero warnings.
+
 ## 2026-04-28 (CM-BLG-042 + CM-BLG-044 + CM-BLG-061 — demo/internal specialization and contact context)
 
 - `CM-BLG-042` and `CM-BLG-044` are complete via `modeSpecificTactics` shipped in the previous push; no additional code changes needed. Marked complete.

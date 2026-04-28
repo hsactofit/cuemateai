@@ -92,6 +92,15 @@ private struct SessionRowView: View {
                 Text(modeLabel)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                if let outcome = session.sessionOutcome {
+                    Text(outcome.title)
+                        .font(.caption2)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(outcomeColor(outcome).opacity(0.75))
+                        .cornerRadius(3)
+                }
                 Spacer()
                 Text(shortDate(session.endedAt ?? session.startedAt))
                     .font(.caption2)
@@ -102,6 +111,17 @@ private struct SessionRowView: View {
         .padding(.vertical, 6)
         .background(isSelected ? Color.accentColor.opacity(0.12) : Color.clear)
         .cornerRadius(6)
+    }
+
+    private func outcomeColor(_ outcome: SessionOutcome) -> Color {
+        switch outcome {
+        case .pilot:          return .green
+        case .followUp:       return .blue
+        case .blocked:        return .red
+        case .internalAction: return .orange
+        case .openRisk:       return .yellow
+        case .unclear:        return .gray
+        }
     }
 
     private var modeLabel: String {
@@ -203,6 +223,44 @@ struct SessionHistoryDetailView: View {
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
+            if session.endedAt != nil {
+                HStack(spacing: 8) {
+                    Text("Outcome:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Picker("Outcome", selection: Binding(
+                        get: { session.sessionOutcome ?? .unclear },
+                        set: { _ in }
+                    )) {
+                        ForEach(SessionOutcome.allCases, id: \.self) { outcome in
+                            Text(outcome.title).tag(outcome)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .font(.caption)
+                    .disabled(true)
+                    if let outcome = session.sessionOutcome {
+                        Text(outcome.title)
+                            .font(.caption)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(outcomeAccentColor(outcome))
+                            .cornerRadius(4)
+                    }
+                }
+            }
+        }
+    }
+
+    private func outcomeAccentColor(_ outcome: SessionOutcome) -> Color {
+        switch outcome {
+        case .pilot:          return .green
+        case .followUp:       return .blue
+        case .blocked:        return .red
+        case .internalAction: return .orange
+        case .openRisk:       return Color(red: 0.8, green: 0.7, blue: 0.0)
+        case .unclear:        return .gray
         }
     }
 

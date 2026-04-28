@@ -1,5 +1,69 @@
 import Foundation
 
+/// Structured outcome for a completed session (CM-BLG-082).
+/// Auto-detected from summary signals; can be manually overridden.
+enum SessionOutcome: String, Codable, Sendable, CaseIterable, Equatable {
+    case pilot
+    case followUp = "follow-up"
+    case blocked
+    case internalAction = "internal-action"
+    case openRisk = "open-risk"
+    case unclear
+
+    var title: String {
+        switch self {
+        case .pilot:          "Pilot"
+        case .followUp:       "Follow-up"
+        case .blocked:        "Blocked"
+        case .internalAction: "Internal Action"
+        case .openRisk:       "Open Risk"
+        case .unclear:        "Unclear"
+        }
+    }
+
+    var statusColor: String {
+        switch self {
+        case .pilot:          "green"
+        case .followUp:       "blue"
+        case .blocked:        "red"
+        case .internalAction: "orange"
+        case .openRisk:       "yellow"
+        case .unclear:        "gray"
+        }
+    }
+}
+
+extension SessionOutcome {
+    /// Infers the most likely outcome from a meeting summary using keyword signals.
+    static func detect(from summary: MeetingSummary?) -> SessionOutcome {
+        guard let summary else { return .unclear }
+        let combined = [
+            summary.outcomeNote,
+            summary.decisionSummary,
+            summary.overview,
+            summary.keyTopics.joined(separator: " "),
+            summary.actionItems.joined(separator: " "),
+        ].joined(separator: " ").lowercased()
+
+        if combined.contains("pilot") || combined.contains("trial") || combined.contains("proof of concept") || combined.contains("poc") {
+            return .pilot
+        }
+        if combined.contains("blocked") || combined.contains("no decision") || combined.contains("stalled") || combined.contains("waiting on") {
+            return .blocked
+        }
+        if combined.contains("follow up") || combined.contains("follow-up") || combined.contains("next call") || combined.contains("next meeting") || combined.contains("circle back") {
+            return .followUp
+        }
+        if combined.contains("open risk") || combined.contains("unresolved risk") || combined.contains("risk remains") {
+            return .openRisk
+        }
+        if combined.contains("internal action") || combined.contains("assigned to") || combined.contains("action owner") || combined.contains("internal task") {
+            return .internalAction
+        }
+        return .unclear
+    }
+}
+
 /// A Codable follow-up artifact stored alongside a session record.
 /// Optional field — old sessions decode it as nil without breaking.
 struct StoredFollowUpArtifact: Codable, Sendable, Equatable {
@@ -35,6 +99,9 @@ struct MeetingSessionRecord: Identifiable, Codable, Sendable, Equatable {
     /// Stored follow-up artifact generated after the meeting ends.
     /// Nil for sessions created before this field was added.
     var followUpArtifact: StoredFollowUpArtifact?
+    /// Structured outcome for this session. Auto-detected from summary; can be manually overridden.
+    /// Nil for sessions created before this field was added.
+    var sessionOutcome: SessionOutcome?
 
     var isActive: Bool {
         endedAt == nil
@@ -54,7 +121,8 @@ struct MeetingSessionRecord: Identifiable, Codable, Sendable, Equatable {
         summary: MeetingSummary?,
         followUpNotes: String,
         brief: MeetingBrief?,
-        followUpArtifact: StoredFollowUpArtifact?
+        followUpArtifact: StoredFollowUpArtifact?,
+        sessionOutcome: SessionOutcome? = nil
     ) {
         self.id = id
         self.title = title
@@ -69,6 +137,7 @@ struct MeetingSessionRecord: Identifiable, Codable, Sendable, Equatable {
         self.followUpNotes = followUpNotes
         self.brief = brief
         self.followUpArtifact = followUpArtifact
+        self.sessionOutcome = sessionOutcome
     }
 
     /// Custom decoder keeps old saved sessions decodable when new non-optional fields
@@ -88,6 +157,7 @@ struct MeetingSessionRecord: Identifiable, Codable, Sendable, Equatable {
         followUpNotes = (try? c.decode(String.self, forKey: .followUpNotes)) ?? ""
         brief = try? c.decodeIfPresent(MeetingBrief.self, forKey: .brief) ?? nil
         followUpArtifact = try? c.decodeIfPresent(StoredFollowUpArtifact.self, forKey: .followUpArtifact) ?? nil
+        sessionOutcome = try? c.decodeIfPresent(SessionOutcome.self, forKey: .sessionOutcome) ?? nil
     }
 }
 

@@ -11,6 +11,8 @@
 - `CM-BLG-043` Interview support specialization: interview mode now gets STAR-structure coaching, outcome-anchoring instruction, conciseness framing, and gap-handling guidance. Intent-specific proof/objection variants tuned for interview context.
 - `CM-BLG-044` Internal meeting support specialization: internal-sync tactics (decision forcing, owner naming, blocker + dependency surfacing, binary alignment questions) in `modeSpecificTactics`. Complete.
 - `CM-BLG-061` Contact and account context: added `participantName`, `participantCompany`, `relationshipStage`, `priorContextNote` to `MeetingConfiguration` with backward-compatible decoding. `participantContextLine` helper composes a one-line summary into both AI prompts. `meetingContextCard` UI in `StartSessionWorkspaceView`. 15 tests passing.
+- `CM-BLG-062` Meeting goals and success criteria: added `meetingGoal`, `targetOutcome`, `mustCoverPoints` to `MeetingConfiguration`; `meetingGoalsSection` injects them into both AI prompts; `meetingGoalsCard` UI in `StartSessionWorkspaceView`.
+- `CM-BLG-082` Outcome tracking: `SessionOutcome` enum (pilot/follow-up/blocked/internal-action/open-risk/unclear); auto-detection from summary signals in `saveSummaryResult`; manual override via `saveSessionOutcome`; outcome badge in session history list and detail header. 19 tests passing.
 
 ## 2026-04-26 (Launch-readiness doc audit)
 

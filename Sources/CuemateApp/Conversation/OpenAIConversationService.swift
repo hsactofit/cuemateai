@@ -77,6 +77,7 @@ struct OpenAIConversationService: Sendable {
         let other = request.collaboratorRoleLabel
         let modeGuidance = modeHelper.systemPromptSection(for: request.configuration.meetingType, intent: request.detectedIntent)
         let participantContext = modeHelper.participantContextLine(for: request.configuration)
+        let goalsSection = modeHelper.meetingGoalsSection(for: request.configuration)
 
         let latestQ = request.latestQuestion.map { seg in
             "\(other): \(seg.text.trimmingCharacters(in: .whitespacesAndNewlines))"
@@ -96,25 +97,29 @@ struct OpenAIConversationService: Sendable {
 
         let participantLine = participantContext.isEmpty ? "\(other) (unknown contact)" : "\(other): \(participantContext)"
 
-        return """
-        Keep the primary answer to 1-2 short sentences. Prefer clarity over completeness.
-
-        Participants: \(you) (user) | \(participantLine)
-        Meeting type: \(request.configuration.meetingType) | tone: \(request.configuration.tone) | length: \(request.configuration.length) | level: \(request.configuration.userLevel)
-
-        Latest statement/question to respond to:
-        \(latestQ)
-
-        Prior context (recent turns):
-        \(priorTurns.isEmpty ? "None" : priorTurns)
-
-        Retrieved knowledge:
-        \(sources.isEmpty ? "None" : sources)
-
-        \(modeGuidance)
-
-        Return JSON with keys primary, why, next.
-        """
+        var parts = [
+            "Keep the primary answer to 1-2 short sentences. Prefer clarity over completeness.",
+            "",
+            "Participants: \(you) (user) | \(participantLine)",
+            "Meeting type: \(request.configuration.meetingType) | tone: \(request.configuration.tone) | length: \(request.configuration.length) | level: \(request.configuration.userLevel)",
+        ]
+        if !goalsSection.isEmpty { parts.append(""); parts.append(goalsSection) }
+        parts += [
+            "",
+            "Latest statement/question to respond to:",
+            latestQ,
+            "",
+            "Prior context (recent turns):",
+            priorTurns.isEmpty ? "None" : priorTurns,
+            "",
+            "Retrieved knowledge:",
+            sources.isEmpty ? "None" : sources,
+            "",
+            modeGuidance,
+            "",
+            "Return JSON with keys primary, why, next.",
+        ]
+        return parts.joined(separator: "\n")
     }
 
     private var systemInstruction: String {

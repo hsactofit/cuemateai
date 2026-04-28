@@ -15,27 +15,35 @@ struct MeetingConfiguration: Equatable, Sendable {
     /// Relationship stage: "new", "ongoing", or "strategic"
     var relationshipStage = "new"
     var priorContextNote = ""
+    // CM-BLG-062: meeting goals and success criteria
+    var meetingGoal = ""
+    var targetOutcome = ""
+    var mustCoverPoints = ""
 }
 
 extension MeetingConfiguration: Codable {
     enum CodingKeys: String, CodingKey {
         case speakerName, meetingType, userLevel, tone, length, creativity, aiMode
         case participantName, participantCompany, relationshipStage, priorContextNote
+        case meetingGoal, targetOutcome, mustCoverPoints
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        speakerName       = (try? c.decode(String.self, forKey: .speakerName))       ?? "Me"
-        meetingType       = (try? c.decode(String.self, forKey: .meetingType))       ?? "sales"
-        userLevel         = (try? c.decode(String.self, forKey: .userLevel))         ?? "beginner"
-        tone              = (try? c.decode(String.self, forKey: .tone))              ?? "confident"
-        length            = (try? c.decode(String.self, forKey: .length))            ?? "short"
-        creativity        = (try? c.decode(String.self, forKey: .creativity))        ?? "balanced"
-        aiMode            = (try? c.decode(String.self, forKey: .aiMode))            ?? "active"
-        participantName   = (try? c.decode(String.self, forKey: .participantName))   ?? ""
+        speakerName        = (try? c.decode(String.self, forKey: .speakerName))        ?? "Me"
+        meetingType        = (try? c.decode(String.self, forKey: .meetingType))        ?? "sales"
+        userLevel          = (try? c.decode(String.self, forKey: .userLevel))          ?? "beginner"
+        tone               = (try? c.decode(String.self, forKey: .tone))               ?? "confident"
+        length             = (try? c.decode(String.self, forKey: .length))             ?? "short"
+        creativity         = (try? c.decode(String.self, forKey: .creativity))         ?? "balanced"
+        aiMode             = (try? c.decode(String.self, forKey: .aiMode))             ?? "active"
+        participantName    = (try? c.decode(String.self, forKey: .participantName))    ?? ""
         participantCompany = (try? c.decode(String.self, forKey: .participantCompany)) ?? ""
-        relationshipStage = (try? c.decode(String.self, forKey: .relationshipStage)) ?? "new"
-        priorContextNote  = (try? c.decode(String.self, forKey: .priorContextNote))  ?? ""
+        relationshipStage  = (try? c.decode(String.self, forKey: .relationshipStage))  ?? "new"
+        priorContextNote   = (try? c.decode(String.self, forKey: .priorContextNote))   ?? ""
+        meetingGoal        = (try? c.decode(String.self, forKey: .meetingGoal))        ?? ""
+        targetOutcome      = (try? c.decode(String.self, forKey: .targetOutcome))      ?? ""
+        mustCoverPoints    = (try? c.decode(String.self, forKey: .mustCoverPoints))    ?? ""
     }
 }
 

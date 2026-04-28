@@ -136,6 +136,51 @@ final class GuidanceGuardrailTests: XCTestCase {
         XCTAssertTrue(line.contains("new contact"))
     }
 
+    // MARK: - SessionOutcome detection (CM-BLG-082)
+
+    func testOutcomeDetectsPilotFromSummary() {
+        let summary = MeetingSummary(
+            overview: "Agreed to run a pilot next quarter.",
+            keyTopics: ["pilot", "timeline"],
+            actionItems: [],
+            outcomeNote: "Pilot approved.",
+            followUpDraft: "",
+            followUpSubject: "",
+            decisionSummary: ""
+        )
+        XCTAssertEqual(SessionOutcome.detect(from: summary), .pilot)
+    }
+
+    func testOutcomeDetectsFollowUpFromSummary() {
+        let summary = MeetingSummary(
+            overview: "Good discussion.",
+            keyTopics: [],
+            actionItems: ["Follow up next week"],
+            outcomeNote: "Will circle back after internal review.",
+            followUpDraft: "",
+            followUpSubject: "",
+            decisionSummary: ""
+        )
+        XCTAssertEqual(SessionOutcome.detect(from: summary), .followUp)
+    }
+
+    func testOutcomeDetectsBlockedFromSummary() {
+        let summary = MeetingSummary(
+            overview: "No decision reached.",
+            keyTopics: [],
+            actionItems: [],
+            outcomeNote: "Blocked — waiting on legal approval.",
+            followUpDraft: "",
+            followUpSubject: "",
+            decisionSummary: ""
+        )
+        XCTAssertEqual(SessionOutcome.detect(from: summary), .blocked)
+    }
+
+    func testOutcomeIsUnclearWhenSummaryIsNil() {
+        XCTAssertEqual(SessionOutcome.detect(from: nil), .unclear)
+    }
+
     // MARK: - MeetingModePromptHelper specialization (CM-BLG-041, CM-BLG-043)
 
     func testSalesObjctionIntentIncludesReverseRisk() {

@@ -164,6 +164,16 @@ struct MeetingModePromptHelper: Sendable {
         }
     }
 
+    /// Multi-line goals section for AI prompts. Returns empty string when no goals are set.
+    func meetingGoalsSection(for config: MeetingConfiguration) -> String {
+        var lines: [String] = []
+        if !config.meetingGoal.isEmpty      { lines.append("Goal: \(config.meetingGoal)") }
+        if !config.targetOutcome.isEmpty    { lines.append("Success: \(config.targetOutcome)") }
+        if !config.mustCoverPoints.isEmpty  { lines.append("Must cover: \(config.mustCoverPoints)") }
+        guard !lines.isEmpty else { return "" }
+        return "Meeting goals:\n" + lines.joined(separator: "\n")
+    }
+
     /// One-line participant context string for AI prompts.
     /// Returns an empty string when no context is set so call sites can skip it cleanly.
     func participantContextLine(for config: MeetingConfiguration) -> String {
