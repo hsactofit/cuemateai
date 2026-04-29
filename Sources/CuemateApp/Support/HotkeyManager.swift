@@ -90,16 +90,25 @@ private struct HotkeyBinding {
 
     static let defaultBindings: [HotkeyBinding] = [
         HotkeyBinding(action: .toggleOverlay, keyCode: kVK_ANSI_H, modifiers: UInt32(controlKey | optionKey)),
+        HotkeyBinding(action: .toggleOverlay, keyCode: kVK_ANSI_H, modifiers: UInt32(cmdKey | shiftKey)),
+        HotkeyBinding(action: .getResponse, keyCode: kVK_ANSI_G, modifiers: UInt32(controlKey | optionKey)),
+        HotkeyBinding(action: .getResponse, keyCode: kVK_ANSI_G, modifiers: UInt32(cmdKey | shiftKey)),
         HotkeyBinding(action: .pauseResume, keyCode: kVK_ANSI_P, modifiers: UInt32(controlKey | optionKey)),
+        HotkeyBinding(action: .pauseResume, keyCode: kVK_ANSI_P, modifiers: UInt32(cmdKey | shiftKey)),
         HotkeyBinding(action: .nextSuggestion, keyCode: kVK_RightArrow, modifiers: UInt32(controlKey | optionKey)),
+        HotkeyBinding(action: .nextSuggestion, keyCode: kVK_RightArrow, modifiers: UInt32(cmdKey | shiftKey)),
         HotkeyBinding(action: .shorten, keyCode: kVK_ANSI_S, modifiers: UInt32(controlKey | optionKey)),
+        HotkeyBinding(action: .shorten, keyCode: kVK_ANSI_S, modifiers: UInt32(cmdKey | shiftKey)),
         HotkeyBinding(action: .expand, keyCode: kVK_ANSI_L, modifiers: UInt32(controlKey | optionKey)),
+        HotkeyBinding(action: .expand, keyCode: kVK_ANSI_L, modifiers: UInt32(cmdKey | shiftKey)),
         HotkeyBinding(action: .moreConfident, keyCode: kVK_ANSI_C, modifiers: UInt32(controlKey | optionKey)),
-        HotkeyBinding(action: .regenerate, keyCode: kVK_ANSI_R, modifiers: UInt32(controlKey | optionKey))
+        HotkeyBinding(action: .moreConfident, keyCode: kVK_ANSI_C, modifiers: UInt32(cmdKey | shiftKey)),
+        HotkeyBinding(action: .regenerate, keyCode: kVK_ANSI_R, modifiers: UInt32(controlKey | optionKey)),
+        HotkeyBinding(action: .regenerate, keyCode: kVK_ANSI_R, modifiers: UInt32(cmdKey | shiftKey))
     ]
 
     static func action(for index: Int) -> ConversationAction? {
-        guard defaultBindings.indices.contains(index) else { return nil }
-        return defaultBindings[index].action
+        guard ConversationAction.allCases.indices.contains(index) else { return nil }
+        return ConversationAction.allCases[index]
     }
 }

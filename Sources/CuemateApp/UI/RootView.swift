@@ -213,6 +213,28 @@ struct StartSessionWorkspaceView: View {
                     }
                 }
 
+                if model.activeMeetingSession != nil {
+                    HStack(spacing: 12) {
+                        ActionButton(
+                            title: "Get Response",
+                            systemImage: "sparkles",
+                            tint: .blue
+                        ) {
+                            Task {
+                                await model.requestGuidanceFromCurrentTranscript()
+                            }
+                        }
+
+                        ActionButton(
+                            title: model.isPaused ? "Resume Scroll" : "Pause Scroll",
+                            systemImage: model.isPaused ? "play.fill" : "pause.fill",
+                            tint: .gray
+                        ) {
+                            model.togglePause()
+                        }
+                    }
+                }
+
                 if let session = model.activeMeetingSession {
                     HStack(spacing: 14) {
                         CompactMetric(title: "Transcript", value: "\(session.transcriptSegments.count)")
@@ -516,7 +538,7 @@ struct StartSessionWorkspaceView: View {
                         tint: .purple
                     ) {
                         Task {
-                            await model.generateConversationGuidance()
+                            await model.requestGuidanceFromCurrentTranscript()
                         }
                     }
 
@@ -1026,6 +1048,7 @@ struct SettingsWorkspaceView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     setupReadinessCard
                     setupCard
+                    audioRoutingCard
                     providerCard
                     offlineModeCard
                     screenContextCard
@@ -1153,6 +1176,17 @@ struct SettingsWorkspaceView: View {
                 }
                 .pickerStyle(.segmented)
 
+                Picker("Transcript interpretation", selection: $model.transcriptInterpretationMode) {
+                    ForEach(TranscriptInterpretationMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Text(model.transcriptInterpretationSummary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 Picker("Response", selection: $model.generationProvider) {
                     ForEach(GenerationProvider.allCases) { provider in
                         Text(provider.title).tag(provider)
@@ -1160,14 +1194,47 @@ struct SettingsWorkspaceView: View {
                 }
                 .pickerStyle(.segmented)
 
-                Toggle("Auto-refresh response from final transcript", isOn: $model.autoResponseEnabled)
+                Toggle("Auto-submit from final transcript", isOn: $model.autoResponseEnabled)
+
+                if model.transcriptInterpretationMode == .sharedRoom {
+                    Text("Shared-room mode works better with manual Get Response. Auto-submit can fire too early on mixed room audio.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Picker("Output mode", selection: $model.openAIOutputMode) {
+                    ForEach(OpenAIOutputMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(true)
+
+                Picker("OpenAI model profile", selection: $model.openAIModelProfile) {
+                    ForEach(OpenAIModelProfile.allCases) { profile in
+                        Text(profile.title).tag(profile)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Selected OpenAI model: \(model.selectedOpenAIModel)")
+                        .font(.caption.weight(.semibold))
+                    Text(model.openAIProfileSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("API key is stored in macOS Keychain, not in the app-state config file.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
                 SecureField("OpenAI API key (optional)", text: $openAIKeyInput)
                     .textFieldStyle(.roundedBorder)
 
                 HStack {
                     Button("Save OpenAI Key") {
-                        model.saveOpenAIKey(openAIKeyInput == "Saved in Keychain" ? "" : openAIKeyInput)
+                        guard openAIKeyInput != "Saved in Keychain" else { return }
+                        model.saveOpenAIKey(openAIKeyInput)
                     }
                     .buttonStyle(.borderedProminent)
 
@@ -1179,6 +1246,54 @@ struct SettingsWorkspaceView: View {
                         .buttonStyle(.bordered)
                     }
                 }
+            }
+        }
+    }
+
+    private var audioRoutingCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Audio Routing Check")
+                            .font(.title3.weight(.semibold))
+                        Text("Verify that Cuemate can see BlackHole, the current system output, and your earphone or headset path.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+
+                HStack(spacing: 10) {
+                    Button("Run Audio Check") {
+                        model.runAudioRoutingCheck()
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button("Play Test Beep") {
+                        model.playSystemAudioTestBeep()
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                Text(model.audioRoutingSummary)
+                    .font(.subheadline.weight(.semibold))
+
+                ForEach(model.audioRoutingItems, id: \.self) { item in
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "waveform.path")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(item)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Text("If macOS output is set to Multi-Output Device, the test beep should go to both your speakers or earphones and the BlackHole path.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -1737,6 +1852,12 @@ struct SettingsWorkspaceView: View {
                     Slider(value: $model.overlayVerticalInset, in: -40...180, step: 1)
                 }
 
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Opacity")
+                        .font(.caption.weight(.semibold))
+                    Slider(value: $model.overlayOpacity, in: 0.45...1.0, step: 0.01)
+                }
+
                 Button("Apply Overlay Position") {
                     model.pinOverlayNearCamera()
                 }
@@ -1825,7 +1946,7 @@ struct OverlayPanelView: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color(red: 0.09, green: 0.11, blue: 0.14).opacity(0.96))
+                .fill(Color(red: 0.09, green: 0.11, blue: 0.14).opacity(model.overlayOpacity))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -2100,7 +2221,7 @@ struct MenuBarContentView: View {
 
             Button("Generate Response") {
                 Task {
-                    await model.generateConversationGuidance()
+                    await model.requestGuidanceFromCurrentTranscript()
                 }
             }
         }

@@ -15,7 +15,22 @@ enum TranscriptSanitizer {
         "[blank_audo]",
         "blank_audio",
         "blank_audo",
-        "[inaudible]"
+        "[inaudible]",
+        "keyboard clicking",
+        "(keyboard clicking)",
+        "[keyboard clicking]",
+        "typing",
+        "(typing)",
+        "[typing]",
+        "background noise",
+        "(background noise)",
+        "[background noise]",
+        "music",
+        "(music)",
+        "[music]",
+        "applause",
+        "(applause)",
+        "[applause]"
     ]
 
     static func normalizedText(_ text: String) -> String? {

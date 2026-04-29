@@ -24,6 +24,29 @@ enum MeetingCaptureMode: String, CaseIterable, Codable, Sendable, Identifiable {
     }
 }
 
+enum TranscriptInterpretationMode: String, CaseIterable, Codable, Sendable, Identifiable {
+    case speakerSplit
+    case sharedRoom
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .speakerSplit: "Speaker Split"
+        case .sharedRoom: "Shared Room"
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .speakerSplit:
+            "Use this when the app has a cleaner signal for each side of the conversation."
+        case .sharedRoom:
+            "Use this when one mic picks up both you and the meeting speaker. Cuemate will infer the latest actionable ask from mixed transcript context."
+        }
+    }
+}
+
 enum MeetingLanguage: String, CaseIterable, Codable, Sendable, Identifiable {
     case autoDetect = "auto"
     case english    = "en"
@@ -223,6 +246,62 @@ enum GenerationProvider: String, CaseIterable, Codable, Sendable, Identifiable {
     }
 }
 
+enum OpenAIOutputMode: String, CaseIterable, Codable, Sendable, Identifiable {
+    case text
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .text: "Text"
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .text:
+            "Render answer guidance as text in the overlay."
+        }
+    }
+}
+
+enum OpenAIModelProfile: String, CaseIterable, Codable, Sendable, Identifiable {
+    case test
+    case adaptive
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .test: "Test"
+        case .adaptive: "Adaptive"
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .test:
+            "Use gpt-5-mini first for fast mixed-context testing."
+        case .adaptive:
+            "Use gpt-5-mini for product-style calls and gpt-5.1 for reasoning-heavy calls."
+        }
+    }
+
+    func resolvedModel(for meetingMode: MeetingMode) -> String {
+        switch self {
+        case .test:
+            return "gpt-5-mini"
+        case .adaptive:
+            switch meetingMode {
+            case .interview, .internalSync:
+                return "gpt-5.1"
+            case .sales, .demo, .clientReview, .general:
+                return "gpt-5-mini"
+            }
+        }
+    }
+}
+
 struct OverlayContent: Equatable, Codable, Sendable {
     var nowSay = "Start with a focused pilot, prove value quickly, and expand once the team sees usage."
     var why = "Keeps the answer direct and grounded in the current discussion."
@@ -402,6 +481,7 @@ private enum SessionDiagnosticEvent {
 
 enum ConversationAction: String, CaseIterable, Identifiable {
     case toggleOverlay
+    case getResponse
     case pauseResume
     case nextSuggestion
     case shorten
@@ -414,6 +494,7 @@ enum ConversationAction: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .toggleOverlay: "Show/Hide Overlay"
+        case .getResponse: "Get Response"
         case .pauseResume: "Pause/Resume"
         case .nextSuggestion: "Next Suggestion"
         case .shorten: "Shorten"
@@ -425,13 +506,14 @@ enum ConversationAction: String, CaseIterable, Identifiable {
 
     var shortcutLabel: String {
         switch self {
-        case .toggleOverlay: "Control + Option + H"
-        case .pauseResume: "Control + Option + P"
-        case .nextSuggestion: "Control + Option + Right Arrow"
-        case .shorten: "Control + Option + S"
-        case .expand: "Control + Option + L"
-        case .moreConfident: "Control + Option + C"
-        case .regenerate: "Control + Option + R"
+        case .toggleOverlay: "Command + Shift + H"
+        case .getResponse: "Command + Shift + G"
+        case .pauseResume: "Command + Shift + P"
+        case .nextSuggestion: "Command + Shift + Right Arrow"
+        case .shorten: "Command + Shift + S"
+        case .expand: "Command + Shift + L"
+        case .moreConfident: "Command + Shift + C"
+        case .regenerate: "Command + Shift + R"
         }
     }
 }
@@ -585,6 +667,9 @@ final class AppModel: ObservableObject {
     @Published var overlayPinnedNearCamera = true {
         didSet { persistState() }
     }
+    @Published var overlayOpacity = 0.96 {
+        didSet { persistState() }
+    }
     @Published var confidenceMode = "confident" {
         didSet { persistState() }
     }
@@ -592,9 +677,28 @@ final class AppModel: ObservableObject {
         didSet { persistState() }
     }
     @Published var transcriptionProvider: TranscriptionProvider = .appleSpeech {
-        didSet { persistState() }
+        didSet {
+            if transcriptionProvider == .appleSpeech, transcriptInterpretationMode != .sharedRoom {
+                transcriptInterpretationMode = .sharedRoom
+            }
+            persistState()
+        }
+    }
+    @Published var transcriptInterpretationMode: TranscriptInterpretationMode = .sharedRoom {
+        didSet {
+            if transcriptInterpretationMode == .sharedRoom {
+                autoResponseEnabled = false
+            }
+            persistState()
+        }
     }
     @Published var generationProvider: GenerationProvider = .localHeuristic {
+        didSet { persistState() }
+    }
+    @Published var openAIOutputMode: OpenAIOutputMode = .text {
+        didSet { persistState() }
+    }
+    @Published var openAIModelProfile: OpenAIModelProfile = .test {
         didSet { persistState() }
     }
     @Published var autoResponseEnabled = true {
@@ -632,6 +736,8 @@ final class AppModel: ObservableObject {
     @Published var audioLevel = 0.0
     @Published var capturedFrameCount = 0
     @Published var audioSampleRate = 0.0
+    @Published var audioRoutingSummary = "Not checked yet"
+    @Published var audioRoutingItems: [String] = []
     @Published var transcriptionState: TranscriptionState = .idle
     @Published var speechPermissionGranted = false
     @Published var transcriptSegments: [TranscriptSegment] = []
@@ -671,6 +777,7 @@ final class AppModel: ObservableObject {
     private let documentIngestion: DocumentIngestionService
     private let retrievalEngine: RetrievalEngine
     private let audioCaptureService: AudioCaptureService
+    private let audioRoutingDiagnosticsService: AudioRoutingDiagnosticsService
     private let speechTranscriptionService: SpeechTranscriptionService
     private let whisperCppTranscriptionService: WhisperCppTranscriptionService
     private let screenContextService: ScreenContextService
@@ -701,6 +808,7 @@ final class AppModel: ObservableObject {
         documentIngestion: DocumentIngestionService? = nil,
         retrievalEngine: RetrievalEngine? = nil,
         audioCaptureService: AudioCaptureService = AudioCaptureService(),
+        audioRoutingDiagnosticsService: AudioRoutingDiagnosticsService = AudioRoutingDiagnosticsService(),
         speechTranscriptionService: SpeechTranscriptionService = SpeechTranscriptionService(),
         whisperCppTranscriptionService: WhisperCppTranscriptionService? = nil,
         screenContextService: ScreenContextService = ScreenContextService(),
@@ -720,6 +828,7 @@ final class AppModel: ObservableObject {
         self.documentIngestion = documentIngestion ?? DocumentIngestionService(appPaths: appPaths)
         self.retrievalEngine = retrievalEngine ?? RetrievalEngine(appPaths: appPaths)
         self.audioCaptureService = audioCaptureService
+        self.audioRoutingDiagnosticsService = audioRoutingDiagnosticsService
         self.speechTranscriptionService = speechTranscriptionService
         self.whisperCppTranscriptionService = whisperCppTranscriptionService ?? WhisperCppTranscriptionService(appPaths: appPaths)
         self.screenContextService = screenContextService
@@ -748,6 +857,7 @@ final class AppModel: ObservableObject {
         configureTranscriptionCallbacks()
         checkScreenPermission()
         playbooks = playbookStore.load()
+        runAudioRoutingCheck()
     }
 
     func bootstrapStorage() {
@@ -988,9 +1098,10 @@ final class AppModel: ObservableObject {
     }
 
     func applyRecommendedSetupDefaults() {
-        transcriptionProvider = recommendedTranscriptionProvider
+        transcriptionProvider = .appleSpeech
+        transcriptInterpretationMode = .sharedRoom
         generationProvider = recommendedGenerationProvider
-        autoResponseEnabled = true
+        autoResponseEnabled = false
         overlayPinnedNearCamera = true
 
         if configuration.speakerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -1009,6 +1120,20 @@ final class AppModel: ObservableObject {
             verticalInset: overlayVerticalInset
         )
         appendLog("Pinned overlay near the camera zone")
+    }
+
+    func runAudioRoutingCheck() {
+        let snapshot = audioRoutingDiagnosticsService.inspect()
+        audioRoutingSummary = snapshot.summary
+        audioRoutingItems = snapshot.detailLines
+        providerStatusMessage = snapshot.summary
+        appendLog("Ran audio routing check")
+    }
+
+    func playSystemAudioTestBeep() {
+        NSSound.beep()
+        providerStatusMessage = "Played a system beep through the current macOS output"
+        appendLog("Played system audio test beep")
     }
 
     func appendLog(_ message: String) {
@@ -1093,7 +1218,12 @@ final class AppModel: ObservableObject {
         }
 
         let context = segments.prefix(3).map { segment in
-            let speaker = normalizedSpeakerName(segment.speaker) == normalizedSpeakerName(userDisplayName) ? "You" : collaboratorRoleLabel
+            let speaker: String
+            if transcriptInterpretationMode == .sharedRoom {
+                speaker = "Room"
+            } else {
+                speaker = normalizedSpeakerName(segment.speaker) == normalizedSpeakerName(userDisplayName) ? "You" : collaboratorRoleLabel
+            }
             let text = firstSentence(in: segment.text).trimmingCharacters(in: .whitespacesAndNewlines)
             return "\(speaker): \(text)"
         }
@@ -1465,7 +1595,7 @@ final class AppModel: ObservableObject {
     }
 
     private var latestExternalSegment: TranscriptSegment? {
-        liveContextSegments().first(where: { normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName) })
+        latestPromptCandidate(in: liveContextSegments())
     }
 
     var activePlaybookTitle: String {
@@ -1622,9 +1752,7 @@ final class AppModel: ObservableObject {
     }
 
     var recommendedTranscriptionProvider: TranscriptionProvider {
-        dependencyStatus(for: "whisper-runtime") == .ready && dependencyStatus(for: "whisper-model") == .ready
-            ? .whisperCpp
-            : .appleSpeech
+        .appleSpeech
     }
 
     var recommendedGenerationProvider: GenerationProvider {
@@ -1659,7 +1787,9 @@ final class AppModel: ObservableObject {
                     ? (dependencyStatus(for: "whisper-runtime") == .ready && dependencyStatus(for: "whisper-model") == .ready
                         ? "whisper.cpp is ready for local transcription."
                         : "whisper.cpp still needs runtime or model setup.")
-                    : "Apple Speech is selected for fast setup.",
+                    : transcriptInterpretationMode == .sharedRoom
+                        ? "Apple Speech is selected for shared-room capture from one device."
+                        : "Apple Speech is selected for fast setup.",
                 done: transcriptionProvider == .appleSpeech || (dependencyStatus(for: "whisper-runtime") == .ready && dependencyStatus(for: "whisper-model") == .ready)
             ),
             (
@@ -1767,6 +1897,28 @@ final class AppModel: ObservableObject {
     /// The active generation provider, overridden to `.localHeuristic` when offline mode is on.
     var effectiveGenerationProvider: GenerationProvider {
         offlineModeEnabled ? .localHeuristic : generationProvider
+    }
+
+    var selectedOpenAIModel: String {
+        openAIModelProfile.resolvedModel(for: meetingMode)
+    }
+
+    var transcriptInterpretationSummary: String {
+        transcriptInterpretationMode.summary
+    }
+
+    var openAIProfileSummary: String {
+        switch openAIModelProfile {
+        case .test:
+            return "Test mode uses gpt-5-mini for every call while we validate mixed-room transcript handling and overlay quality."
+        case .adaptive:
+            switch meetingMode {
+            case .interview, .internalSync:
+                return "Adaptive mode selects gpt-5.1 for reasoning-heavy interview and architecture-style calls."
+            case .sales, .demo, .clientReview, .general:
+                return "Adaptive mode selects gpt-5-mini for product, demo, and sales-style calls, using local retrieval context when available."
+            }
+        }
     }
 
     /// Resolved language enum from `configuration.meetingLanguage`; falls back to English.
@@ -2012,8 +2164,25 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func requestGuidanceFromCurrentTranscript() async {
+        guard activeMeetingSession != nil else {
+            liveResponseState = "Start a session first"
+            return
+        }
+
+        guard !isAutoGenerating else {
+            liveResponseState = "Waiting for current generation"
+            return
+        }
+
+        liveResponseState = "Generating from current transcript"
+        await generateConversationGuidance()
+        liveResponseState = "Response ready"
+    }
+
     func generateConversationGuidance() async {
         let start = Date()
+        refreshGuidanceInputsFromCurrentTranscript()
         let request = liveConversationRequest()
         let confidence = guidanceConfidenceLevel(for: request)
 
@@ -2033,9 +2202,14 @@ final class AppModel: ObservableObject {
             }
             do {
                 response = try await openAIConversationService.generate(
-                    from: OpenAIGenerationRequest(apiKey: apiKey, request: request)
+                    from: OpenAIGenerationRequest(
+                        apiKey: apiKey,
+                        model: selectedOpenAIModel,
+                        outputMode: openAIOutputMode,
+                        request: request
+                    )
                 )
-                providerStatusMessage = "Using OpenAI API"
+                providerStatusMessage = "Using OpenAI API (\(selectedOpenAIModel), \(openAIOutputMode.title.lowercased()))"
                 streamingResponsePreview = response.primary
             } catch {
                 providerStatusMessage = "OpenAI failed, using local heuristic guidance"
@@ -2068,9 +2242,7 @@ final class AppModel: ObservableObject {
         }
         isStreamingResponse = false
 
-        let latestQuestion = request.transcriptSegments.first(where: {
-            normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName)
-        })?.text ?? latestTranscriptText
+        let latestQuestion = request.latestQuestion?.text ?? latestTranscriptText
         let intent = detectIntent(from: latestQuestion)
 
         overlayContent = OverlayContent(
@@ -2211,6 +2383,10 @@ final class AppModel: ObservableObject {
         switch action {
         case .toggleOverlay:
             toggleOverlay()
+        case .getResponse:
+            Task {
+                await requestGuidanceFromCurrentTranscript()
+            }
         case .pauseResume:
             togglePause()
         case .nextSuggestion:
@@ -2481,11 +2657,19 @@ final class AppModel: ObservableObject {
             overlayAnchor = state.overlayAnchor
             overlayHorizontalInset = state.overlayHorizontalInset
             overlayVerticalInset = state.overlayVerticalInset
+            overlayOpacity = state.overlayOpacity
             confidenceMode = state.confidenceMode
             currentSuggestionIndex = state.currentSuggestionIndex
             transcriptionProvider = state.transcriptionProvider
+            transcriptInterpretationMode = state.transcriptInterpretationMode
             generationProvider = state.generationProvider
+            openAIOutputMode = state.openAIOutputMode
+            openAIModelProfile = state.openAIModelProfile
             autoResponseEnabled = state.autoResponseEnabled
+            if transcriptionProvider == .appleSpeech {
+                transcriptInterpretationMode = .sharedRoom
+                autoResponseEnabled = false
+            }
             memoryEnabled = state.memoryEnabled
             excludedFromMemoryIDs = Set(state.excludedFromMemoryIDs.compactMap(UUID.init))
             offlineModeEnabled = state.offlineModeEnabled
@@ -2507,10 +2691,14 @@ final class AppModel: ObservableObject {
             overlayAnchor: overlayAnchor,
             overlayHorizontalInset: overlayHorizontalInset,
             overlayVerticalInset: overlayVerticalInset,
+            overlayOpacity: overlayOpacity,
             confidenceMode: confidenceMode,
             currentSuggestionIndex: currentSuggestionIndex,
             transcriptionProvider: transcriptionProvider,
+            transcriptInterpretationMode: transcriptInterpretationMode,
             generationProvider: generationProvider,
+            openAIOutputMode: openAIOutputMode,
+            openAIModelProfile: openAIModelProfile,
             autoResponseEnabled: autoResponseEnabled,
             memoryEnabled: memoryEnabled,
             excludedFromMemoryIDs: excludedFromMemoryIDs.map(\.uuidString),
@@ -2691,6 +2879,16 @@ final class AppModel: ObservableObject {
             return
         }
 
+        if transcriptInterpretationMode == .speakerSplit {
+            guard normalizedSpeakerName(segment.speaker) != normalizedSpeakerName(userDisplayName) else {
+                liveResponseState = "Holding on your own speech"
+                return
+            }
+        } else if looksLikeSelfResponseText(trimmed) {
+            liveResponseState = "Holding likely self-response"
+            return
+        }
+
         if let waitReason = guidanceStabilityReason(for: segment) {
             liveResponseState = waitReason
             return
@@ -2847,6 +3045,10 @@ final class AppModel: ObservableObject {
     }
 
     private func inferredSpeakerName(for segment: TranscriptSegment) -> String {
+        if transcriptInterpretationMode == .sharedRoom {
+            return "Room"
+        }
+
         let originalSpeaker = normalizedSpeakerName(segment.speaker)
         let userSpeaker = normalizedSpeakerName(userDisplayName)
         let text = segment.text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2931,7 +3133,12 @@ final class AppModel: ObservableObject {
     private func checkAutoStartCondition() {
         guard activeMeetingSession == nil,
               audioCaptureState == .capturing,
-              transcriptSegments.filter({ normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName) }).count >= 2
+              transcriptSegments.filter({
+                  if transcriptInterpretationMode == .sharedRoom {
+                      return $0.isFinal
+                  }
+                  return normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName)
+              }).count >= 2
         else { return }
         showAutoStartSuggestion = true
     }
@@ -3008,9 +3215,7 @@ final class AppModel: ObservableObject {
 
     private func liveConversationRequest() -> ConversationRequest {
         let segments = liveContextSegments()
-        let latestQ = segments.first(where: {
-            normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName)
-        })
+        let latestQ = latestPromptCandidate(in: segments)
         let intent = detectIntent(from: latestQ?.text ?? latestTranscriptText)
         let pastSessions = meetingSessions.filter { !$0.isActive }
         let memoryText: String
@@ -3026,6 +3231,7 @@ final class AppModel: ObservableObject {
             retrievalResults: retrievalResults,
             userDisplayName: userDisplayName,
             collaboratorRoleLabel: collaboratorRoleLabel,
+            sharedTranscriptMode: transcriptInterpretationMode == .sharedRoom,
             latestQuestion: latestQ,
             detectedIntent: intent.rawValue,
             crossSessionMemory: memoryText,
@@ -3034,6 +3240,12 @@ final class AppModel: ObservableObject {
             calendarContext: importedCalendarEvent?.calendarContextSummary ?? "",
             teamContext: activePlaybook?.teamContext ?? ""
         )
+    }
+
+    private func refreshGuidanceInputsFromCurrentTranscript() {
+        let latestPrompt = latestPromptCandidate(in: liveContextSegments())?.text ?? latestTranscriptText
+        retrievalQuery = latestPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        runRetrieval()
     }
 
     private func liveContextSegments(maxSegments: Int = 4) -> [TranscriptSegment] {
@@ -3066,10 +3278,72 @@ final class AppModel: ObservableObject {
         return selected
     }
 
-    private func confidenceAssessment(request: ConversationRequest) -> ConfidenceAssessment {
-        let latestQuestion = request.transcriptSegments.first(where: {
+    private func latestPromptCandidate(in segments: [TranscriptSegment]) -> TranscriptSegment? {
+        if transcriptInterpretationMode == .sharedRoom {
+            return segments.first(where: { $0.isFinal && isActionablePrompt($0.text) && !looksLikeSelfResponseText($0.text) })
+                ?? segments.first(where: { $0.isFinal && isUsefulSharedRoomContext($0.text) })
+        }
+
+        return segments.first(where: {
             normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName)
-        })?.text ?? latestTranscriptText
+        })
+    }
+
+    private func isUsefulSharedRoomContext(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !looksLikeSelfResponseText(trimmed), !isLowSignalTranscriptText(trimmed) else {
+            return false
+        }
+
+        let wordCount = normalizedWords(from: trimmed).count
+        if isDirectQuestion(trimmed) {
+            return wordCount >= 3
+        }
+
+        return wordCount >= 5 || detectIntent(from: trimmed) != .general
+    }
+
+    private func isLowSignalTranscriptText(_ text: String) -> Bool {
+        let lowered = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let noisePhrases: Set<String> = [
+            "keyboard clicking",
+            "(keyboard clicking)",
+            "[keyboard clicking]",
+            "typing",
+            "(typing)",
+            "background noise",
+            "(background noise)",
+            "music",
+            "(music)",
+            "applause",
+            "(applause)"
+        ]
+
+        guard !noisePhrases.contains(lowered) else { return true }
+        return normalizedWords(from: lowered).count < 2 && !lowered.contains("?")
+    }
+
+    private func looksLikeSelfResponseText(_ text: String) -> Bool {
+        let lowered = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !lowered.isEmpty else { return false }
+
+        if isLikelyUserResponse(text: lowered) {
+            return true
+        }
+
+        return resemblesOverlayResponse(text)
+    }
+
+    private func resemblesOverlayResponse(_ text: String) -> Bool {
+        let answerWords = Set(normalizedWords(from: overlayContent.nowSay))
+        let spokenWords = normalizedWords(from: text)
+        guard !spokenWords.isEmpty, !answerWords.isEmpty else { return false }
+        let overlapCount = spokenWords.filter { answerWords.contains($0) }.count
+        return overlapCount >= min(max(4, spokenWords.count / 2), 7)
+    }
+
+    private func confidenceAssessment(request: ConversationRequest) -> ConfidenceAssessment {
+        let latestQuestion = request.latestQuestion?.text ?? latestTranscriptText
 
         if manualInterruptionActive {
             return ConfidenceAssessment(
@@ -3202,6 +3476,10 @@ final class AppModel: ObservableObject {
             return "Waiting for more context"
         }
 
+        if !isActionablePrompt(trimmed) {
+            return "Waiting for a complete question"
+        }
+
         if isTrailingFragment(trimmed) {
             return "Waiting for complete thought"
         }
@@ -3226,6 +3504,32 @@ final class AppModel: ObservableObject {
         }
 
         return nil
+    }
+
+    private func isActionablePrompt(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+
+        let words = normalizedWords(from: trimmed)
+        let wordCount = words.count
+        let directQuestion = isDirectQuestion(trimmed)
+        let intent = detectIntent(from: trimmed)
+        let lower = trimmed.lowercased()
+        let hasSentenceEnd = lower.hasSuffix(".") || lower.hasSuffix("?") || lower.hasSuffix("!")
+
+        if directQuestion {
+            return wordCount >= 4
+        }
+
+        if intent != .general && wordCount >= 5 && !isTrailingFragment(trimmed) {
+            return true
+        }
+
+        if wordCount >= 10 && hasSentenceEnd && !isTrailingFragment(trimmed) {
+            return true
+        }
+
+        return false
     }
 
     private func isTrailingFragment(_ text: String) -> Bool {
@@ -3803,10 +4107,16 @@ final class AppModel: ObservableObject {
             return
         }
 
+        let latestExternalPrompt = transcriptSegments.first(where: {
+            $0.isFinal && normalizedSpeakerName($0.speaker) != normalizedSpeakerName(userDisplayName)
+        })
+
         if let otherTurnAt = lastOtherSpeakerTurnAt,
-           now.timeIntervalSince(otherTurnAt) < 1.1,
+           now.timeIntervalSince(otherTurnAt) < 1.8,
            voiceActivityState == .silent,
-           teleprompterProgress < 0.08 {
+           teleprompterProgress < 0.08,
+           let latestExternalPrompt,
+           isActionablePrompt(latestExternalPrompt.text) {
             overlayState = .questionDetected
             interruptionState = "Fresh question"
             return

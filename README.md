@@ -40,7 +40,7 @@ Every completed session leaves behind a full record: overview, key topics, actio
 
 ### Settings
 
-Configure your transcription path (Apple Speech or `whisper.cpp`), your AI provider (local heuristic, Ollama, or OpenAI), your speaker identity, your preferred answer style (balanced / safe / assertive / consultative), and your OpenAI API key (stored in Keychain).
+Configure your transcription path (Apple Speech or `whisper.cpp`), your AI provider (local heuristic, Ollama, or OpenAI), your speaker identity, your preferred answer style (balanced / safe / assertive / consultative), your OpenAI output mode (`Text`), your OpenAI model profile (`Test` or `Adaptive`), and your OpenAI API key (stored in Keychain).
 
 ## What Cuemate Does Today
 
@@ -103,6 +103,50 @@ Configure your transcription path (Apple Speech or `whisper.cpp`), your AI provi
 - Local file-based storage (App Support)
 - Ollama (local inference)
 - OpenAI API (optional, key in Keychain)
+
+## OpenAI Setup
+
+1. Launch the app and open `Settings`.
+2. In the `Providers` card, set `Response` to `OpenAI API`.
+3. Leave `Output mode` on `Text`.
+4. Set `OpenAI model profile`:
+   - `Test`: always use `gpt-4.1-mini`
+   - `Adaptive`: use `gpt-5-mini` for sales, demo, client-review, and general calls; use `gpt-5.1` for interview and internal-sync calls
+5. Paste your OpenAI API key into `OpenAI API key (optional)` and click `Save OpenAI Key`.
+
+The API key is stored in the macOS Keychain. It is not written into the plaintext app-state file.
+
+Persisted non-secret app config lives at:
+
+```text
+~/Library/Application Support/cuemate/config/app-state.json
+```
+
+## BlackHole 2ch Setup
+
+Install BlackHole 2ch with Homebrew:
+
+```bash
+brew install blackhole-2ch
+```
+
+Then set up the routing in macOS:
+
+1. Open `Audio MIDI Setup`.
+2. Confirm `BlackHole 2ch` appears in the device list.
+3. Click the `+` button and create a `Multi-Output Device`.
+4. Enable:
+   - your normal speakers or headphones
+   - `BlackHole 2ch`
+5. Set the Mac system output to that new `Multi-Output Device`.
+6. In your meeting app, keep your microphone as your normal mic.
+7. In Cuemate, use the mic path for your voice and the system-audio path for the remote side.
+
+Notes:
+
+- BlackHole is a virtual loopback device, so it does not appear in Applications.
+- If macOS or the installer asks for a restart, restart before testing.
+- If audio routing feels wrong, re-open `Audio MIDI Setup` and verify the Multi-Output device still includes both your speakers and `BlackHole 2ch`.
 
 ## Run Locally
 

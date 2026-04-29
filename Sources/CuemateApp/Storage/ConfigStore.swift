@@ -9,10 +9,14 @@ struct AppState: Codable, Sendable {
     var overlayAnchor: OverlayAnchor = .topCenter
     var overlayHorizontalInset: Double = 0
     var overlayVerticalInset: Double = 0
+    var overlayOpacity: Double = 0.96
     var confidenceMode: String
     var currentSuggestionIndex: Int
     var transcriptionProvider: TranscriptionProvider = .appleSpeech
+    var transcriptInterpretationMode: TranscriptInterpretationMode = .sharedRoom
     var generationProvider: GenerationProvider = .localHeuristic
+    var openAIOutputMode: OpenAIOutputMode = .text
+    var openAIModelProfile: OpenAIModelProfile = .test
     var autoResponseEnabled: Bool = true
     var memoryEnabled: Bool = true
     var excludedFromMemoryIDs: [String] = []
@@ -22,8 +26,9 @@ struct AppState: Codable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case configuration, overlayContent, clickThroughEnabled, isPaused
-        case overlayPinnedNearCamera, overlayAnchor, overlayHorizontalInset, overlayVerticalInset
-        case confidenceMode, currentSuggestionIndex, transcriptionProvider, generationProvider
+        case overlayPinnedNearCamera, overlayAnchor, overlayHorizontalInset, overlayVerticalInset, overlayOpacity
+        case confidenceMode, currentSuggestionIndex, transcriptionProvider, transcriptInterpretationMode, generationProvider
+        case openAIOutputMode, openAIModelProfile
         case autoResponseEnabled, memoryEnabled, excludedFromMemoryIDs, offlineModeEnabled
         case screenContextEnabled, activePlaybookID
     }
@@ -38,10 +43,14 @@ struct AppState: Codable, Sendable {
         overlayAnchor = (try? c.decode(OverlayAnchor.self, forKey: .overlayAnchor)) ?? .topCenter
         overlayHorizontalInset = (try? c.decode(Double.self, forKey: .overlayHorizontalInset)) ?? 0
         overlayVerticalInset = (try? c.decode(Double.self, forKey: .overlayVerticalInset)) ?? 0
+        overlayOpacity = (try? c.decode(Double.self, forKey: .overlayOpacity)) ?? 0.96
         confidenceMode = try c.decode(String.self, forKey: .confidenceMode)
         currentSuggestionIndex = try c.decode(Int.self, forKey: .currentSuggestionIndex)
         transcriptionProvider = (try? c.decode(TranscriptionProvider.self, forKey: .transcriptionProvider)) ?? .appleSpeech
+        transcriptInterpretationMode = (try? c.decode(TranscriptInterpretationMode.self, forKey: .transcriptInterpretationMode)) ?? .sharedRoom
         generationProvider = (try? c.decode(GenerationProvider.self, forKey: .generationProvider)) ?? .localHeuristic
+        openAIOutputMode = (try? c.decode(OpenAIOutputMode.self, forKey: .openAIOutputMode)) ?? .text
+        openAIModelProfile = (try? c.decode(OpenAIModelProfile.self, forKey: .openAIModelProfile)) ?? .test
         autoResponseEnabled = (try? c.decode(Bool.self, forKey: .autoResponseEnabled)) ?? true
         memoryEnabled = (try? c.decode(Bool.self, forKey: .memoryEnabled)) ?? true
         excludedFromMemoryIDs = (try? c.decode([String].self, forKey: .excludedFromMemoryIDs)) ?? []
@@ -52,9 +61,10 @@ struct AppState: Codable, Sendable {
 
     init(configuration: MeetingConfiguration, overlayContent: OverlayContent,
          clickThroughEnabled: Bool, isPaused: Bool, overlayPinnedNearCamera: Bool,
-         overlayAnchor: OverlayAnchor, overlayHorizontalInset: Double, overlayVerticalInset: Double,
+         overlayAnchor: OverlayAnchor, overlayHorizontalInset: Double, overlayVerticalInset: Double, overlayOpacity: Double,
          confidenceMode: String, currentSuggestionIndex: Int,
-         transcriptionProvider: TranscriptionProvider, generationProvider: GenerationProvider,
+         transcriptionProvider: TranscriptionProvider, transcriptInterpretationMode: TranscriptInterpretationMode, generationProvider: GenerationProvider,
+         openAIOutputMode: OpenAIOutputMode, openAIModelProfile: OpenAIModelProfile,
          autoResponseEnabled: Bool, memoryEnabled: Bool, excludedFromMemoryIDs: [String],
          offlineModeEnabled: Bool, screenContextEnabled: Bool, activePlaybookID: String) {
         self.configuration = configuration
@@ -65,10 +75,14 @@ struct AppState: Codable, Sendable {
         self.overlayAnchor = overlayAnchor
         self.overlayHorizontalInset = overlayHorizontalInset
         self.overlayVerticalInset = overlayVerticalInset
+        self.overlayOpacity = overlayOpacity
         self.confidenceMode = confidenceMode
         self.currentSuggestionIndex = currentSuggestionIndex
         self.transcriptionProvider = transcriptionProvider
+        self.transcriptInterpretationMode = transcriptInterpretationMode
         self.generationProvider = generationProvider
+        self.openAIOutputMode = openAIOutputMode
+        self.openAIModelProfile = openAIModelProfile
         self.autoResponseEnabled = autoResponseEnabled
         self.memoryEnabled = memoryEnabled
         self.excludedFromMemoryIDs = excludedFromMemoryIDs

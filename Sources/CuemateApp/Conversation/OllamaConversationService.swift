@@ -130,12 +130,16 @@ struct OllamaConversationService: Sendable {
         let memorySection = request.crossSessionMemory
 
         let latestQ = request.latestQuestion.map { seg in
-            "\(other): \(seg.text.trimmingCharacters(in: .whitespacesAndNewlines))"
+            let prefix = request.sharedTranscriptMode ? "Mixed room transcript" : other
+            return "\(prefix): \(seg.text.trimmingCharacters(in: .whitespacesAndNewlines))"
         } ?? "None"
 
         let priorTurns = request.transcriptSegments.filter { seg in
             seg.id != request.latestQuestion?.id
         }.prefix(3).map { seg in
+            if request.sharedTranscriptMode {
+                return seg.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
             let label = seg.speaker.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                 == you.lowercased() ? you : other
             return "\(label): \(seg.text.trimmingCharacters(in: .whitespacesAndNewlines))"
@@ -160,6 +164,9 @@ struct OllamaConversationService: Sendable {
             "Participants: \(you) (user) | \(participantLine)",
             "Meeting type: \(request.configuration.meetingType) | tone: \(request.configuration.tone) | length: \(request.configuration.length) | level: \(request.configuration.userLevel)",
         ]
+        if request.sharedTranscriptMode {
+            parts.append("Transcript mode: mixed room audio from a single device. Speaker labels are unreliable, so infer the latest actionable ask from context and ignore filler or likely echoed answer fragments.")
+        }
         if !langLine.isEmpty { parts.append(langLine) }
         if !goalsSection.isEmpty { parts.append(""); parts.append(goalsSection) }
         if !memorySection.isEmpty { parts.append(""); parts.append(memorySection) }

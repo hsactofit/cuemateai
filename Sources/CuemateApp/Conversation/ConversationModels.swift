@@ -6,6 +6,8 @@ struct ConversationRequest: Sendable {
     let retrievalResults: [RetrievalSearchResult]
     let userDisplayName: String
     let collaboratorRoleLabel: String
+    /// True when the transcript comes from one mixed room/speaker source rather than reliable speaker separation.
+    let sharedTranscriptMode: Bool
     /// The most recent final segment from the other speaker — the statement/question being responded to.
     let latestQuestion: TranscriptSegment?
     /// Detected intent for the current moment (e.g. "pricing", "objection", "decision", "nextStep", "general").

@@ -64,6 +64,7 @@ final class GuidanceGuardrailTests: XCTestCase {
             retrievalResults: [],
             userDisplayName: userDisplay,
             collaboratorRoleLabel: collaborator,
+            sharedTranscriptMode: false,
             latestQuestion: latestQ,
             detectedIntent: intent,
             crossSessionMemory: memory,

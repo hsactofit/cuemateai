@@ -72,6 +72,7 @@ final class MultilingualTests: XCTestCase {
             retrievalResults: [],
             userDisplayName: "Me",
             collaboratorRoleLabel: "Them",
+            sharedTranscriptMode: false,
             latestQuestion: nil,
             detectedIntent: "general",
             crossSessionMemory: "",

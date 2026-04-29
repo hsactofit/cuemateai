@@ -86,6 +86,7 @@ final class CalendarEventParserTests: XCTestCase {
             retrievalResults: [],
             userDisplayName: "Me",
             collaboratorRoleLabel: "Them",
+            sharedTranscriptMode: false,
             latestQuestion: nil,
             detectedIntent: "general",
             crossSessionMemory: "",

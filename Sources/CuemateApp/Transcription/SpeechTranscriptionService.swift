@@ -14,6 +14,7 @@ final class SpeechTranscriptionService {
     private var recognizer: SFSpeechRecognizer?
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
+    private var lastCommittedTranscript = ""
     var onTranscript: ((TranscriptSegment) -> Void)?
 
     init() {
@@ -69,7 +70,14 @@ final class SpeechTranscriptionService {
             guard let self else { return }
 
             if let result {
-                guard let transcriptText = TranscriptSanitizer.normalizedText(result.bestTranscription.formattedString) else {
+                guard let fullTranscriptText = TranscriptSanitizer.normalizedText(result.bestTranscription.formattedString) else {
+                    return
+                }
+                let incrementalText = self.incrementalTranscriptText(from: fullTranscriptText)
+                guard let transcriptText = TranscriptSanitizer.normalizedText(incrementalText) else {
+                    if result.isFinal {
+                        self.lastCommittedTranscript = fullTranscriptText
+                    }
                     return
                 }
                 let segment = TranscriptSegment(
@@ -82,6 +90,10 @@ final class SpeechTranscriptionService {
                 )
                 Task { @MainActor in
                     self.onTranscript?(segment)
+                }
+
+                if result.isFinal {
+                    self.lastCommittedTranscript = fullTranscriptText
                 }
             }
 
@@ -102,5 +114,33 @@ final class SpeechTranscriptionService {
         task?.cancel()
         request = nil
         task = nil
+        lastCommittedTranscript = ""
+    }
+
+    private func incrementalTranscriptText(from fullText: String) -> String {
+        let committedWords = words(in: lastCommittedTranscript)
+        let fullWords = words(in: fullText)
+
+        guard !committedWords.isEmpty, fullWords.count >= committedWords.count else {
+            return fullText
+        }
+
+        var prefixCount = 0
+        for (committed, current) in zip(committedWords, fullWords) {
+            if committed.caseInsensitiveCompare(current) == .orderedSame {
+                prefixCount += 1
+            } else {
+                break
+            }
+        }
+
+        let suffixWords = fullWords.dropFirst(prefixCount)
+        return suffixWords.isEmpty ? "" : suffixWords.joined(separator: " ")
+    }
+
+    private func words(in text: String) -> [String] {
+        text
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
     }
 }

@@ -162,6 +162,7 @@ struct PostMeetingSummaryService: Sendable {
 
         for text in texts {
             let words = tokenize(text).filter { $0.count > 3 && !stopWords.contains($0) }
+            guard words.count >= 2 else { continue }
             for i in 0..<(words.count - 1) {
                 let bigram = "\(words[i].capitalized) \(words[i + 1].capitalized)"
                 bigramCounts[bigram, default: 0] += 1
